@@ -153,8 +153,20 @@ def main(opts, clean=False):
         new_opts.signal_strength = signal
         new_opts.rho = rho
 
-        _methods = [methods[n] for n in new_opts.methods]
-        _instance = data_instances[new_opts.instance]()
+        try:
+            _methods = [methods[n] for n in new_opts.methods]
+        except KeyError: # list the methods and quit
+            print("Method not found. Valid methods:")
+            print(sorted(methods.keys()))
+            return
+        try:
+            _instance = data_instances[new_opts.instance]
+        except KeyError: # list the methods and quit
+            print("Data generating mechanism not found. Valid mechanisms:")
+            print(sorted(data_instances.keys()))
+            return
+            
+        _instance = _instance() # default instance to find trait names
         instance = data_instances[new_opts.instance](**dict([(n, getattr(new_opts, n)) for n in _instance.trait_names() if hasattr(new_opts, n)]))
 
         if signal is not None: # here is where signal_fac can be ignored
