@@ -614,8 +614,8 @@ class randomized_lasso(parametric_method):
     lambda_choice = Unicode("theory")
     randomizer_scale = Float(1)
 
-    ndraw = 5000
-    burnin = 1000
+    ndraw = 15000
+    burnin = 2000
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -724,13 +724,53 @@ class randomized_lasso_half_1se(randomized_lasso_1se):
 
 randomized_lasso_half.register(), randomized_lasso_half_CV.register(), randomized_lasso_half_1se.register()
 
+# selective mle
+
+class randomized_lasso_mle(randomized_lasso_aggressive_half):
+
+    method_name = Unicode("Randomized MLE")
+    randomizer_scale = Float(0.5)
+    model = Unicode("selected")
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            self._method_instance = randomized_modelQ(self.feature_cov * n,
+                                                      self.X,
+                                                      self.Y,
+                                                      self.lagrange * np.sqrt(n),
+                                                      randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+        return self._method_instance
+
+    def generate_pvalues(self):
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+        Z, pvalues = rand_lasso.selective_MLE(target=self.model, solve_args={'min_iter':1000, 'tol':1.e-12})[-3:-1]
+        print(pvalues, 'pvalues')
+        print(Z, 'Zvalues')
+        if len(pvalues) > 0:
+            return active_set, pvalues
+        else:
+            return [], []
+
+randomized_lasso_mle.register()
+
+
 # Using modelQ for randomized
 
 class randomized_lasso_half_pop_1se(randomized_lasso_half_1se):
 
     method_name = Unicode("Randomized ModelQ (pop)")
     randomizer_scale = Float(0.5)
-    nsample = 10000
+    nsample = 15000
     burnin = 2000
 
     @property
@@ -749,7 +789,7 @@ class randomized_lasso_half_semi_1se(randomized_lasso_half_1se):
     method_name = Unicode("Randomized ModelQ (semi-supervised)")
     randomizer_scale = Float(0.5)
     B = 10000
-    nsample = 10000
+    nsample = 15000
     burnin = 2000
 
     @classmethod
@@ -788,8 +828,8 @@ class randomized_lasso_half_pop_aggressive(randomized_lasso_aggressive_half):
 
     method_name = Unicode("Randomized ModelQ (pop)")
 
-    randomizer_scale = Float(0.25)
-    nsample = 10000
+    randomizer_scale = Float(0.5)
+    nsample = 15000
     burnin = 2000
 
     @property
@@ -809,7 +849,7 @@ class randomized_lasso_half_semi_aggressive(randomized_lasso_aggressive_half):
     randomizer_scale = Float(0.25)
 
     B = 10000
-    nsample = 10000
+    nsample = 15000
     burnin = 2000
 
     @classmethod
