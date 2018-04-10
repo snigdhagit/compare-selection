@@ -257,6 +257,14 @@ class parametric_method(generic_method):
         else:
             return [], active_set
 
+    def generate_pvalues(self):
+        # should return (active, pvalues)
+        raise NotImplementedError('abstract method')
+
+    def point_estimator(self):
+        # should return (active, point_estimator)
+        raise NotImplementedError('abstract method')
+        
 class liu_theory(parametric_method):
 
     sigma_estimator = Unicode('relaxed')
@@ -512,6 +520,7 @@ class lee_theory(parametric_method):
     
     model = Unicode("selected")
     method_name = Unicode("Lee")
+    estimator = Unicode("LASSO")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -540,6 +549,17 @@ class lee_theory(parametric_method):
             return active_set, pvalues
         else:
             return [], []
+
+    def point_estimator(self):
+        X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+        beta_full = np.zeros(p)
+        if self.estimator == "LASSO":
+            beta_full[L.active] = L.soln
+        else:
+            beta_full[L.active] = L.onestep_estimator
+        return L.active, beta_full
+
 lee_theory.register()
 
 class lee_CV(lee_theory):
@@ -574,6 +594,17 @@ class lee_aggressive(lee_theory):
         self.lagrange = 0.8 * l_theory * np.ones(X.shape[1])
 
 lee_aggressive.register()
+
+class lee_weak(lee_theory):
+    
+    lambda_choice = Unicode("weak")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = 2 * l_theory * np.ones(X.shape[1])
+
+lee_weak.register()
 
 class sqrt_lasso(parametric_method):
 
@@ -694,6 +725,18 @@ class randomized_lasso_aggressive_half(randomized_lasso):
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
 
+class randomized_lasso_weak_half(randomized_lasso):
+
+    lambda_choice = Unicode('weak')
+    randomizer_scale = Float(0.5)
+
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 2.
+randomized_lasso_weak_half.register()
+
 class randomized_lasso_aggressive_quarter(randomized_lasso):
 
     randomizer_scale = Float(0.25)
@@ -732,16 +775,16 @@ class randomized_lasso_mle(randomized_lasso_aggressive_half):
     randomizer_scale = Float(0.5)
     model = Unicode("selected")
 
-    @property
-    def method_instance(self):
-        if not hasattr(self, "_method_instance"):
-            n, p = self.X.shape
-            self._method_instance = randomized_modelQ(self.feature_cov * n,
-                                                      self.X,
-                                                      self.Y,
-                                                      self.lagrange * np.sqrt(n),
-                                                      randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
-        return self._method_instance
+#     @property
+#     def method_instance(self):
+#         if not hasattr(self, "_method_instance"):
+#             n, p = self.X.shape
+#             self._method_instance = randomized_modelQ(self.feature_cov * n,
+#                                                       self.X,
+#                                                       self.Y,
+#                                                       self.lagrange * np.sqrt(n),
+#                                                       randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+#         return self._method_instance
 
     def generate_pvalues(self):
         X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
