@@ -575,6 +575,17 @@ class lee_aggressive(lee_theory):
 
 lee_aggressive.register()
 
+class lee_weak(lee_theory):
+    
+    lambda_choice = Unicode("weak")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = 2 * l_theory * np.ones(X.shape[1])
+
+lee_weak.register()
+
 class sqrt_lasso(parametric_method):
 
     method_name = Unicode('SqrtLASSO')
@@ -694,6 +705,18 @@ class randomized_lasso_aggressive_half(randomized_lasso):
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
 
+class randomized_lasso_weak_half(randomized_lasso):
+
+    lambda_choice = Unicode('weak')
+    randomizer_scale = Float(0.5)
+
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 2.
+randomized_lasso_weak_half.register()
+
 class randomized_lasso_aggressive_quarter(randomized_lasso):
 
     randomizer_scale = Float(0.25)
@@ -788,7 +811,7 @@ class randomized_lasso_half_pop_aggressive(randomized_lasso_aggressive_half):
 
     method_name = Unicode("Randomized ModelQ (pop)")
 
-    randomizer_scale = Float(0.25)
+    randomizer_scale = Float(0.5)
     nsample = 10000
     burnin = 2000
 
