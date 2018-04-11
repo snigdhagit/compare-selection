@@ -7,8 +7,7 @@ from traitlets import (HasTraits,
                        Instance, 
                        Dict, 
                        Bool,
-                       default, 
-                       observe)
+                       default)
 
 import numpy as np
 import regreg.api as rr
@@ -29,6 +28,8 @@ from rpy2.robjects import numpy2ri
 methods = {}
 
 class generic_method(HasTraits):
+
+    need_CV = False
 
     selectiveR_method = False
     wide_ok = True # ok for p>= n?
@@ -389,6 +390,8 @@ liu_aggressive_reid.register()
 
 class liu_CV(liu_theory):
             
+    need_CV = True
+
     lambda_choice = Unicode("CV")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -399,6 +402,8 @@ liu_CV.register()
 
 class liu_1se(liu_theory):
             
+    need_CV = True
+
     lambda_choice = Unicode("1se")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -564,6 +569,8 @@ lee_theory.register()
 
 class lee_CV(lee_theory):
     
+    need_CV = True
+
     lambda_choice = Unicode("CV")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -575,6 +582,8 @@ lee_CV.register()
 
 class lee_1se(lee_theory):
     
+    need_CV = True
+
     lambda_choice = Unicode("1se")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -685,6 +694,8 @@ class randomized_lasso(parametric_method):
 
 class randomized_lasso_CV(randomized_lasso):
 
+    need_CV = True
+
     lambda_choice = Unicode("CV")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -693,6 +704,8 @@ class randomized_lasso_CV(randomized_lasso):
         self.lagrange = l_min * np.ones(X.shape[1])
 
 class randomized_lasso_1se(randomized_lasso):
+
+    need_CV = True
 
     lambda_choice = Unicode("1se")
 
@@ -757,10 +770,14 @@ class randomized_lasso_half(randomized_lasso):
 
 class randomized_lasso_half_CV(randomized_lasso_CV):
 
+    need_CV = True
+
     randomizer_scale = Float(0.5)
     pass
 
 class randomized_lasso_half_1se(randomized_lasso_1se):
+
+    need_CV = True
 
     randomizer_scale = Float(0.5)
     pass
@@ -999,6 +1016,8 @@ class randomized_lasso_full(randomized_lasso):
 
 class randomized_lasso_full_CV(randomized_lasso_full):
 
+    need_CV = True
+
     lambda_choice = Unicode("CV")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -1007,6 +1026,8 @@ class randomized_lasso_full_CV(randomized_lasso_full):
         self.lagrange = l_min * np.ones(X.shape[1])
 
 class randomized_lasso_full_1se(randomized_lasso_full):
+
+    need_CV = True
 
     lambda_choice = Unicode("1se")
 
@@ -1030,6 +1051,8 @@ class randomized_lasso_full_half_CV(randomized_lasso_full_CV):
     pass
 
 class randomized_lasso_full_half_1se(randomized_lasso_full_1se):
+
+    need_CV = True
 
     randomizer_scale = Float(0.5)
     pass
