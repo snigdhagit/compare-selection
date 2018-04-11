@@ -43,7 +43,7 @@ class equicor_instance(data_instance):
     n = Integer(500)
     p = Integer(200)
     s = Integer(20)
-    rho = Float(0.5)
+    rho = Float(0.0)
     l_theory = Float()
     feature_cov = Instance(np.ndarray)
     signal = Float(4.)
@@ -74,7 +74,7 @@ class equicor_instance(data_instance):
         rho = change['new']
         cor = rho
         tol = 0
-        while cor > 0.5:
+        while cor >= 0.5:
             cor *= rho
             tol += 1
         self.distance_tol = tol
