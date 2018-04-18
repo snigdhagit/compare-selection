@@ -13,29 +13,65 @@ from gaussian_methods import methods
 # import knockoff_phenom # more instances
 
 def compare(instance, 
+            statistic,
+            summary,
             nsim=50, 
-            q=0.2,
             methods=[], 
             verbose=False,
             htmlfile=None,
             method_setup=True,
-            csvfile=None):
+            csvfile=None,
+            q=0.2):
     
     results = [[] for m in methods]
     
-    run_CV = (np.any(['CV' in str(m) for m in methods] + ['1se' in str(m) for m in methods]) or 
-              np.any([(hasattr(m, 'sigma_estimator') and m.sigma_estimator == 'reid') 
-                      for m in methods]))
+    run_CV = np.any([getattr(m, 'need_CV') for m in methods])
 
-    if method_setup:
-        for method in methods:
+    for method in methods:
+        if method_setup:
             method.setup(instance.feature_cov)
+        method.q = q
+
+    method_params, class_names = get_method_params(methods)
+
+    for i in range(nsim):
+
+        X, Y, beta = instance.generate()
+        l_min, l_1se, l_theory, sigma_reid = gaussian_setup(X.copy(), Y.copy(), run_CV=run_CV)
+
+        for method, result in zip(methods, results):
+            if verbose:
+                print('method:', method)
+            result.append(statistic(method, instance, X.copy(), Y.copy(), beta.copy(), l_theory.copy(), l_min, l_1se, sigma_reid))
+
+            if i > 0:
+                df = summarize(method_params, summary, results)
+                for p in instance.params.columns:
+                    df[p] = instance.params[p][0]
+                df['class name'] = class_names
+                if verbose:
+                    print(df[summary(results[0]).columns])
+
+                if htmlfile is not None:
+                    f = open(htmlfile, 'w')
+                    f.write(df.to_html() + '\n')
+                    f.write(instance.params.to_html())
+                    f.close()
+
+                if csvfile is not None:
+                    f = open(csvfile, 'w')
+                    f.write(df.to_csv(index_label=True) + '\n')
+                    f.close()
+
+    return df, results
+
+def get_method_params(methods):
 
     # find all columns needed for output
 
     colnames = []
     for method in methods:
-        M = method(np.random.standard_normal((10,5)), np.random.standard_normal(10), np.nan, np.nan, np.nan, np.nan)
+        M = method(np.random.standard_normal((10,5)), np.random.standard_normal(10), 1., 1., 1., 1.)
         colnames += M.trait_names()
     colnames = sorted(np.unique(colnames))
 
@@ -43,74 +79,57 @@ def compare(instance,
         if colname in method.trait_names():
             return getattr(method, colname)
 
-    def get_cols(method):
+    def get_params(method):
         return [get_col(method, colname) for colname in colnames]
 
-    for i in range(nsim):
+    method_params = []
+    for method in methods:
+        M = method(np.random.standard_normal((10,5)), np.random.standard_normal(10), 1., 1., 1., 1.)
+        method_params.append(get_params(M))
+    method_params = pd.DataFrame(method_params, columns=colnames)
 
-        X, Y, beta = instance.generate()
-        l_min, l_1se, l_theory, sigma_reid = gaussian_setup(X.copy(), Y.copy(), run_CV=run_CV)
-        true_active = np.nonzero(beta)[0]
+    return method_params, [m.__name__ for m in methods]
 
-        def summary(result):
-            result = np.atleast_2d(result)
+def summarize(method_params, summary, results):
+    results_df = pd.concat([summary(r) for r in results])
+    results_df.index = method_params
+    results_df.index.name = str(tuple(method_params.columns))
+    return results_df
 
-            return [result.shape[0],
-                    np.mean(result[:,0]), 
-                    np.std(result[:,0]) / np.sqrt(result.shape[0]), 
-                    np.mean(result[:,1]), 
-                    np.mean(result[:,2]), 
-                    np.std(result[:,2]) / np.sqrt(result.shape[0]),
-                    np.mean(result[:,3]),
-                    np.mean(result[:,4])]
+# Specific to  FDR comparison
 
-        method_instances = []
-        for method, result in zip(methods, results):
-            if verbose:
-                print('method:', method)
-            toc = time.time()
-            M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
-            method_instances.append(M)
-            M.q = q
-            selected, active = M.select()
-            tic = time.time()
-            if active is not None:
-                TD = instance.discoveries(selected, true_active)
-                FD = len(selected) - TD
-                FDP = FD / max(TD + 1. * FD, 1.)
-                result.append((TD / (len(true_active)*1.), FD, FDP, tic-toc, len(active)))
+def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+    toc = time.time()
+    M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    selected, active = M.select()
+    tic = time.time()
+    true_active = np.nonzero(beta)[0]
 
-            if i > 0:
-                df = pd.DataFrame([get_cols(m) + summary(r) for m, r in zip(method_instances, results)], 
-                                  columns=colnames + ['Replicates', 'Full model power', 'SD(Full model power)', 'False discoveries', 'Full model FDR', 'SD(Full model FDR)', 'Time', 'Active'])
+    if active is not None:
+        TD = instance.discoveries(selected, true_active)
+        FD = len(selected) - TD
+        FDP = FD / max(TD + 1. * FD, 1.)
+        return TD / (len(true_active)*1.), FD, FDP, tic-toc, len(active)
 
-                if verbose:
-                    print(df[['Replicates', 'Full model power', 'Time']])
+def FDR_summary(result):
+    result = np.atleast_2d(result)
 
-                if htmlfile is not None:
-                    f = open(htmlfile, 'w')
-                    f.write(df.to_html(index=False) + '\n')
-                    f.write(instance.params.to_html())
-                    f.close()
-
-                if csvfile is not None:
-
-                    df_cp = copy(df)
-                    param = instance.params
-                    for col in param.columns:
-                        df_cp[col] = param[col][0] 
-                    df_cp['distance_tol'] = instance.distance_tol
-                    f = open(csvfile, 'w')
-                    f.write(df_cp.to_csv(index=False) + '\n')
-                    f.close()
-
-    big_df = copy(df)
-    param = instance.params
-    for col in param.columns:
-        big_df[col] = param[col][0] 
-    big_df['distance_tol'] = instance.distance_tol
-    return big_df, results
-
+    return pd.DataFrame([[result.shape[0],
+                          np.mean(result[:,0]), 
+                          np.std(result[:,0]) / np.sqrt(result.shape[0]), 
+                          np.mean(result[:,1]), 
+                          np.mean(result[:,2]), 
+                          np.std(result[:,2]) / np.sqrt(result.shape[0]),
+                          np.mean(result[:,3]),
+                          np.mean(result[:,4])]],
+                        columns=['Replicates', 
+                                 'Full model power', 
+                                 'SD(Full model power)', 
+                                 'False discoveries', 
+                                 'Full model FDR', 
+                                 'SD(Full model FDR)', 
+                                 'Time', 
+                                 'Active'])
 
 def main(opts, clean=False):
 
@@ -179,6 +198,8 @@ def main(opts, clean=False):
         csvfiles.append(new_opts.csvfile)
 
         results_df, results = compare(instance,
+                                      FDR_statistic,
+                                      FDR_summary,
                                       nsim=new_opts.nsim,
                                       methods=_methods,
                                       verbose=new_opts.verbose,
@@ -190,7 +211,7 @@ def main(opts, clean=False):
 
             f = open(new_opts.csvfile, 'w')
             f.write('# parsed arguments: ' + str(new_opts) + '\n') # comment line indicating arguments used
-            f.write(results_df.to_csv(index=False) + '\n')
+            f.write(results_df.to_csv() + '\n')
             f.close()
 
             dfs = [pd.read_csv(f, comment='#') for f in csvfiles]
@@ -237,7 +258,7 @@ Try:
     parser.add_argument('--signal_fac', default=1.2, type=float,
                         help='Scale applied to theoretical lambda to get signal size. Ignored if --signal is used.')
     parser.add_argument('--rho', nargs='+', type=float,
-                        default=0.5,
+                        default=0.,
                         dest='rho',
                         help='Value of AR(1), equicor or mixed param.')
     parser.add_argument('--q', default=0.2, type=float,
@@ -261,6 +282,10 @@ Try:
     parser.add_argument('--wide_only', help='Require methods that are OK for wide -- silently ignore other methods.',
                         default=False,
                         action='store_true')
+
+    parser.add_argument('--cor_thresh', help='Correlation threshold for determining true or false discovery',
+                        default=0.5,
+                        type=float)
 
     opts = parser.parse_args()
 

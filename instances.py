@@ -20,6 +20,7 @@ data_instances = {}
 class data_instance(HasTraits):
 
     distance_tol = Float(0)
+    cor_thresh = Float(0.5)
 
     def generate(self):
         raise NotImplementedError('abstract method should return (X,Y,beta)')
@@ -74,7 +75,7 @@ class equicor_instance(data_instance):
         rho = change['new']
         cor = rho
         tol = 0
-        while cor >= 0.5:
+        while cor >= self.cor_thresh:
             cor *= rho
             tol += 1
         self.distance_tol = tol
