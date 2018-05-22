@@ -23,8 +23,6 @@ def compare(instance,
     
     results = [[] for m in methods]
     
-    run_CV = False
-
     # find all columns needed for output
 
     colnames = []
@@ -44,6 +42,7 @@ def compare(instance,
 
         X, Y, beta = instance.generate()
         l_theory = np.sqrt(instance.n) * instance.penalty # no standardization
+        l_min, l_1se = gaussian_setup(X.copy(), Y.copy(), run_CV=True)[:2]
         true_active = np.nonzero(beta)[0]
 
         def summary(result):
@@ -63,7 +62,7 @@ def compare(instance,
             if verbose:
                 print('method:', method)
             toc = time.time()
-            M = method(X.copy(), Y.copy(), l_theory.copy(), np.nan, np.nan, np.nan)
+            M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, np.nan)
             method_instances.append(M)
             M.q = q
             selected, active = M.select()
@@ -116,6 +115,7 @@ def main(opts, clean=False):
     instance = data_instances[opts.instance](**dict([(n, getattr(opts, n)) for n in _instance.trait_names() if hasattr(opts, n)]))
 
     _methods = [methods['randomized_lasso_half'],
+                methods['randomized_lasso_half_1se'],
                 methods['liu_theory'],
                 methods['lee_theory']]
 

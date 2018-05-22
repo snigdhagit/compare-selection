@@ -35,7 +35,7 @@ def high_signal(n=100, p=50, B=1000):
     return np.percentile(sample_, 99.) + 0.25
 
 def lam_CV(instance, B=100):
-    sample_ = np.zeros(B)
+    sample_ = np.zeros((B, 2))
     numpy2ri.activate()
     for b in range(B):
         X, Y, _ = instance.generate()
@@ -44,11 +44,12 @@ def lam_CV(instance, B=100):
         rpy.r('y = as.numeric(y)')
         rpy.r('''
     G = cv.glmnet(x, y, standardize=FALSE, intercept=FALSE)
-    lam = G$lambda.min
+    lam.min = G$lambda.min
+    lam.1se = G$lambda.1se
     ''')
-        sample_[b] = rpy.r('lam')
+        sample_[b] = (rpy.r('lam.min'), rpy.r('lam.1se'))
     numpy2ri.deactivate()
-    return np.median(sample_)
+    return np.median(sample_, 0)
 
 class liu_null(equicor_instance):
 
@@ -125,7 +126,7 @@ class liu_null_CV(liu_null):
 
     @default('penalty')
     def _default_penalty(self):
-        _penalty = lam_CV(self)
+        _penalty = lam_CV(self)[0]
         return _penalty
     
 liu_null_CV.register()
@@ -136,7 +137,7 @@ class liu_low_CV(liu_low):
 
     @default('penalty')
     def _default_penalty(self):
-        _penalty = lam_CV(self)
+        _penalty = lam_CV(self)[0]
         return _penalty
     
 liu_low_CV.register()
@@ -147,7 +148,40 @@ class liu_high_CV(liu_high):
 
     @default('penalty')
     def _default_penalty(self):
-        _penalty = lam_CV(self)
+        _penalty = lam_CV(self)[0]
         return _penalty
     
 liu_high_CV.register()
+
+class liu_null_1se(liu_null):
+
+    instance_name = Unicode('null_1se')
+
+    @default('penalty')
+    def _default_penalty(self):
+        _penalty = lam_CV(self)[1]
+        return _penalty
+    
+liu_null_1se.register()
+
+class liu_low_1se(liu_low):
+
+    instance_name = Unicode('low_1se')
+
+    @default('penalty')
+    def _default_penalty(self):
+        _penalty = lam_CV(self)[1]
+        return _penalty
+    
+liu_low_1se.register()
+
+class liu_high_1se(liu_high):
+
+    instance_name = Unicode('high_1se')
+
+    @default('penalty')
+    def _default_penalty(self):
+        _penalty = lam_CV(self)[1]
+        return _penalty
+    
+liu_high_1se.register()

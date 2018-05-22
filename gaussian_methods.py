@@ -512,6 +512,7 @@ class lee_theory(parametric_method):
     
     model = Unicode("selected")
     method_name = Unicode("Lee")
+    lambda_choice = Unicode("theory")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
