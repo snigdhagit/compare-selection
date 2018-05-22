@@ -55,7 +55,7 @@ class liu_null(equicor_instance):
     n = Integer(100)
     p = Integer(50)
     s = Integer(5)
-    instance_name = Unicode('Liu')
+    instance_name = Unicode('null')
     signal = Float(0)
     penalty = Float(1.)
 
@@ -99,6 +99,8 @@ liu_null.register()
 
 class liu_low(liu_null):
 
+    instance_name = Unicode('low')
+
     @default('signal')
     def _default_signal(self):
         _signal = low_signal(n=self.n, p=self.p)
@@ -107,6 +109,8 @@ class liu_low(liu_null):
 liu_low.register()
 
 class liu_high(liu_null):
+
+    instance_name = Unicode('high')
 
     @default('signal')
     def _default_signal(self):
@@ -117,6 +121,8 @@ liu_high.register()
 
 class liu_null_CV(liu_null):
 
+    instance_name = Unicode('null_CV')
+
     @default('penalty')
     def _default_penalty(self):
         _penalty = lam_CV(self)
@@ -126,6 +132,8 @@ liu_null_CV.register()
 
 class liu_low_CV(liu_low):
 
+    instance_name = Unicode('low_CV')
+
     @default('penalty')
     def _default_penalty(self):
         _penalty = lam_CV(self)
@@ -134,6 +142,8 @@ class liu_low_CV(liu_low):
 liu_low_CV.register()
 
 class liu_high_CV(liu_high):
+
+    instance_name = Unicode('high_CV')
 
     @default('penalty')
     def _default_penalty(self):

@@ -33,9 +33,11 @@ class data_instance(HasTraits):
         A discovery is within a certain distance of a true signal
         """
 
-        delta = np.fabs(np.subtract.outer(np.asarray(selected), np.asarray(truth))).min(1)
-
-        return (delta <= self.distance_tol).sum()
+        if len(truth) > 0:
+            delta = np.fabs(np.subtract.outer(np.asarray(selected), np.asarray(truth))).min(1)
+            return (delta <= self.distance_tol).sum()
+        else:
+            return 0
 
 class equicor_instance(data_instance):
 
