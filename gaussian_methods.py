@@ -1370,6 +1370,7 @@ class data_splitting_1se(parametric_method):
 
     method_name = Unicode('Data splitting')
     selection_frac = Float(0.5)
+    model_target = Unicode("selected")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -1395,7 +1396,7 @@ class data_splitting_1se(parametric_method):
     def generate_pvalues(self):
 
         X2, Y2 = self.X2[:,self.active_set], self.Y2
-        if len(self.active_set) > 0:
+        if len(self.active_set) > 0 and len(self.active_set) < X2.shape[0]:
             s = len(self.active_set)
             X2i = np.linalg.inv(X2.T.dot(X2))
             beta2 = X2i.dot(X2.T.dot(Y2))
@@ -1408,6 +1409,24 @@ class data_splitting_1se(parametric_method):
             return self.active_set, pvalues
         else:
             return [], []
+
+    def generate_intervals(self):
+
+        X2, Y2 = self.X2[:,self.active_set], self.Y2
+        if len(self.active_set) > 0 and len(self.active_set) < X2.shape[0]:
+            s = len(self.active_set)
+            X2i = np.linalg.inv(X2.T.dot(X2))
+            beta2 = X2i.dot(X2.T.dot(Y2))
+            resid2 = Y2 - X2.dot(beta2)
+            n2 = X2.shape[0]
+            sigma2 = np.sqrt((resid2**2).sum() / (n2 - s))
+            alpha = 1 - self.confidence
+            Z_quant = ndist.ppf(1 - alpha / 2)
+            upper = beta2 + Z_quant * np.sqrt(sigma2**2 * np.diag(X2i))
+            lower = beta2 - Z_quant * np.sqrt(sigma2**2 * np.diag(X2i))
+            return self.active_set, lower, upper
+        else:
+            return [], [], []
 data_splitting_1se.register()
 
 
