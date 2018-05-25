@@ -159,7 +159,6 @@ class mixed_instance(equicor_instance):
 
 mixed_instance.register()
 
-
 class AR_instance(equicor_instance):
 
     instance_name = Unicode('AR')
@@ -168,11 +167,6 @@ class AR_instance(equicor_instance):
 
         n, p, s, rho = self.n, self.p, self.s, self.rho
         X = gaussian_instance(n=n, p=p, equicorrelated=False, rho=rho)[0]
-
-        beta = np.zeros(p)
-        beta[:s] = self.signal
-        np.random.shuffle(beta)
-        beta = randomize_signs(beta)
 
         X *= np.sqrt(n)
         return X
