@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 
 from utils import summarize
-from statistics import FDR_summary
+from statistics import FDR_summary, estimator_summary
 
 def feature_plot(param, power, color='r', label='foo', ylim=None, horiz=None):
     ax = plt.gca()
@@ -36,6 +36,10 @@ def plot(df,
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
     elif feature == 'Full model FDR':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,0.3), horiz=0.2)
+    elif feature == 'Risk':
+        rendered_plot = g_plot.map(feature_plot, param, feature)
+    else:
+        raise ValueError("don't know how to plot '%s'" % param)
     rendered_plot.add_legend()
     rendered_plot.savefig(outbase + '.pdf')
     rendered_plot.savefig(outbase + '.png')
@@ -85,16 +89,24 @@ Try:
         raise ValueError('one should be rho, the other signal')
 
     df = pd.read_csv(csvfile)
+    
+    if opts.feature in ['power', 'fdr']:
+        summary = FDR_summary
+    elif opts.feature == 'risk':
+        summary = estimator_summary
+
     summary_df = summarize(['method_param',
                             opts.param,
                             opts.fixed],
                            df,
-                           FDR_summary)
+                           summary)
 
     plot(summary_df,
          opts.fixed,
          opts.param,
-         {'power':'Full model power', 'fdr': 'Full model FDR'}[opts.feature],
+         {'power':'Full model power', 
+          'fdr': 'Full model FDR',
+          'risk': 'Risk'}[opts.feature],
          opts.outbase,
          methods=opts.methods)
 

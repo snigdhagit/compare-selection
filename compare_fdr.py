@@ -30,7 +30,7 @@ def compare(instance,
 
     for method in methods:
         if method_setup:
-            method.setup(instance.feature_cov)
+            method.setup(instance.feature_cov, instance)
         method.q = q
 
     method_params, class_names, method_names = get_method_params(methods)

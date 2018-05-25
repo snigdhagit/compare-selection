@@ -23,7 +23,7 @@ class data_instance(HasTraits):
     cor_thresh = Float(0.5)
 
     def generate(self):
-        raise NotImplementedError('abstract method should return (X,Y,beta)')
+        raise NotImplementedError('abstract method should return (X, Y, beta)')
 
     @classmethod
     def register(cls):
@@ -112,13 +112,15 @@ class equicor_instance(data_instance):
 
         X = self.generate_X()
 
-        beta = np.zeros(p)
-        beta[:s] = self.signal / np.sqrt(n) # local alternatives
-        np.random.shuffle(beta)
-        beta = randomize_signs(beta)
+        if not hasattr(self, "_beta"):
+            beta = np.zeros(p)
+            beta[:s] = self.signal / np.sqrt(n) # local alternatives
+            np.random.shuffle(beta)
+            beta = randomize_signs(beta)
+            self._beta = beta
 
-        Y = X.dot(beta) + np.random.standard_normal(n)
-        return X, Y, beta
+        Y = X.dot(self._beta) + np.random.standard_normal(n)
+        return X, Y, self._beta
 
 equicor_instance.register()
 

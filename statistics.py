@@ -21,21 +21,25 @@ def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sig
 
 def interval_summary(result):
 
-    coverage = (np.asarray(result['lower_confidence'] <= result['target']) *
-                np.asarray(result['upper_confidence'] >= result['target']))
     length = result['upper_confidence'] - result['lower_confidence']
 
+    def coverage_(result):
+        return np.mean(np.asarray(result['lower_confidence'] <= result['target']) *
+                       np.asarray(result['upper_confidence'] >= result['target']))
+        
     instances = result.groupby('instance_id')
-    active_length = np.mean([len(g.index) for _, g in instances])
+    len_cover = np.array([(len(g.index), coverage_(g)) for _, g in instances])
+    active_vars, mean_coverage = np.mean(len_cover, 0)
+    sd_coverage = np.std(len_cover[:,1])
 
     # XXX we should group by instances before averaging and computing SD
 
     value = pd.DataFrame([[len(np.unique(result['instance_id'])),
-                           np.mean(coverage),
-                           np.std(coverage),
+                           mean_coverage,
+                           sd_coverage,
                            np.median(length),
                            np.mean(length),
-                           active_length,
+                           active_vars,
                            result['model_target'].values[0]]],
                          columns=['Replicates',
                                   'Coverage',
@@ -44,6 +48,45 @@ def interval_summary(result):
                                   'Mean length',
                                   'Active',
                                   'Model'])
+
+    # keep all things constant over groups
+
+    for n in result.columns:
+        if len(np.unique(result[n])) == 1:
+            value[n] = result[n].values[0]
+
+    return value
+
+def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+
+    toc = time.time()
+    M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    active, point_estimate = M.point_estimator()
+    tic = time.time()
+
+    risk = np.linalg.norm(beta - point_estimate)**2
+    value = pd.DataFrame({'Risk':[risk]})
+    value['Time'] = tic-toc
+    value['Active'] = len(active)
+    return M, value
+
+
+def estimator_summary(result):
+
+    nresult = result['Risk'].shape[0]
+    value = pd.DataFrame([[nresult,
+                           np.median(result['Risk']),
+                           np.std(result['Risk']),
+                           np.mean(result['Time']),
+                           np.mean(result['Active']),
+                           result['model_target'].values[0]]],
+                         columns=['Replicates',
+                                  'Risk',
+                                  'SD(Risk)',
+                                  'Time', 
+                                  'Active',
+                                  'Model'
+                                  ])
 
     # keep all things constant over groups
 

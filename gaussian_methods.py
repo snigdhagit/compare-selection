@@ -45,8 +45,9 @@ class generic_method(HasTraits):
     model_target = Unicode()
 
     @classmethod
-    def setup(cls, feature_cov):
+    def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
         (self.X,
@@ -116,9 +117,10 @@ class knockoffs_sigma(generic_method):
     model_target = Unicode("full")
 
     @classmethod
-    def setup(cls, feature_cov):
+    def setup(cls, feature_cov, data_generating_mechanism):
 
         cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
         numpy2ri.activate()
 
         # see if we've factored this before
@@ -257,8 +259,6 @@ class knockoffs_fixed(generic_method):
 
 knockoffs_fixed.register()
 
-# Liu, Markovic, Tibs selection
-
 class parametric_method(generic_method):
 
     confidence = Float(0.95)
@@ -279,6 +279,8 @@ class parametric_method(generic_method):
             return selected, active_set
         else:
             return [], active_set
+
+# Liu, Markovic, Tibs selection
 
 class liu_theory(parametric_method):
 
@@ -319,7 +321,7 @@ class liu_theory(parametric_method):
                 dispersion = self.dispersion
             else:
                 dispersion = None
-            S = L.summary(compute_intervals=compute_intervals, dispersion=dispersion)
+            S = L.summary(compute_intervals=compute_intervals, dispersion=dispersion, level=self.confidence)
             return S
 
     def generate_pvalues(self):
@@ -371,8 +373,9 @@ class liu_modelQ_semi_aggressive(liu_aggressive):
     B = 10000 # how many samples to use to estimate E[XX^T]
 
     @classmethod
-    def setup(cls, feature_cov):
+    def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
         cls._chol = np.linalg.cholesky(feature_cov)
 
     @property
@@ -537,7 +540,6 @@ liu_R_aggressive.register()
 class lee_full_R_theory(liu_theory):
 
     wide_OK = False # requires at least n>p
-
     method_name = Unicode("Lee (R code)")
     selectiveR_method = True
 
@@ -589,6 +591,7 @@ class lee_theory(parametric_method):
     
     model_target = Unicode("selected")
     method_name = Unicode("Lee")
+    estimator = Unicode("OLS")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -633,14 +636,25 @@ class lee_theory(parametric_method):
             return [], [], []
 
     def point_estimator(self):
+
         X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
         n, p = X.shape
-        beta_full = np.zeros(p)
-        if self.estimator == "LASSO":
-            beta_full[L.active] = L.soln
+
+        if not self._fit:
+            L.fit()
+            self._fit = True
+
+        if len(L.active) > 0:
+            beta_full = np.zeros(p)
+            if self.estimator == "LASSO":
+                beta_full[L.active] = L.soln
+            elif self.estimator == "OLS":
+                beta_full[L.active] = L.onestep_estimator
+            else:
+                raise ValueError('estimator must be "OLS" or "LASSO"')
+            return L.active, beta_full
         else:
-            beta_full[L.active] = L.onestep_estimator
-        return L.active, beta_full
+            return [], np.zeros(p)
 
 lee_theory.register()
 
@@ -745,9 +759,10 @@ class randomized_lasso(parametric_method):
     model_target = Unicode("selected")
     lambda_choice = Unicode("theory")
     randomizer_scale = Float(1)
-
-    ndraw = 10000
-    burnin = 1000
+    confidence = Float(0.9)
+    use_MLE = Bool(False)
+    ndraw = 15000
+    burnin = 2000
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -801,14 +816,25 @@ class randomized_lasso(parametric_method):
                                       active,
                                       **{'dispersion': dispersion})
         if active.sum() > 0:
-            _, pvalues, intervals = rand_lasso.summary(observed_target, 
-                                                       cov_target, 
-                                                       cov_target_score, 
-                                                       alternatives,
-                                                       level=0.9,
-                                                       ndraw=self.ndraw,
-                                                       burnin=self.burnin,
-                                                       compute_intervals=compute_intervals)
+            if not self.use_MLE:
+                _, pvalues, intervals = rand_lasso.summary(observed_target, 
+                                                           cov_target, 
+                                                           cov_target_score, 
+                                                           alternatives,
+                                                           ndraw=self.ndraw,
+                                                           burnin=self.burnin,
+                                                           level=self.confidence,
+                                                           compute_intervals=compute_intervals)
+            else:
+                (final_estimator, 
+                 observed_info_mean, 
+                 Z_scores, 
+                 pvalues, 
+                 intervals, 
+                 ind_unbiased_estimator) = rand_lasso.selective_MLE(observed_target, 
+                                                                    cov_target, 
+                                                                    cov_target_score, 
+                                                                    level=self.confidence)
             return active_set, pvalues, intervals
         else:
             return [], [], []
@@ -826,6 +852,45 @@ class randomized_lasso(parametric_method):
             return active_set, intervals[:,0], intervals[:,1]
         else:
             return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+
+        active = signs != 0
+
+        (observed_target, 
+         cov_target, 
+         cov_target_score, 
+         alternatives) = form_targets(self.model_target,
+                                      rand_lasso.loglike,
+                                      rand_lasso._W,
+                                      active)
+
+        if active.sum() > 0:
+
+            (final_estimator, 
+             observed_info_mean, 
+             Z_scores, 
+             pvalues, 
+             intervals, 
+             ind_unbiased_estimator) = rand_lasso.selective_MLE(observed_target, 
+                                                                cov_target, 
+                                                                cov_target_score, 
+                                                                level=self.confidence)
+            beta_full = np.zeros(X.shape[1])
+            beta_full[active] = final_estimator
+            return active_set, beta_full
+        else:
+            return [], np.zeros(p)
 
 class randomized_lasso_CV(randomized_lasso):
 
@@ -906,18 +971,24 @@ class randomized_lasso_half(randomized_lasso):
 class randomized_lasso_half_CV(randomized_lasso_CV):
 
     need_CV = True
-
     randomizer_scale = Float(0.5)
     pass
 
 class randomized_lasso_half_1se(randomized_lasso_1se):
 
     need_CV = True
-
     randomizer_scale = Float(0.5)
     pass
 
+class randomized_lasso_half_mle_1se(randomized_lasso_half_1se):
+
+    method_name = Unicode("Randomized MLE")
+    use_MLE = Bool(True)
+    pass
+randomized_lasso_half_mle_1se.register()
+
 randomized_lasso_half.register(), randomized_lasso_half_CV.register(), randomized_lasso_half_1se.register()
+
 
 # selective mle
 
@@ -989,8 +1060,9 @@ class randomized_lasso_half_semi_1se(randomized_lasso_half_1se):
     burnin = 2000
 
     @classmethod
-    def setup(cls, feature_cov):
+    def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
         cls._chol = np.linalg.cholesky(feature_cov)
 
     @property
@@ -1049,8 +1121,9 @@ class randomized_lasso_half_semi_aggressive(randomized_lasso_aggressive_half):
     burnin = 2000
 
     @classmethod
-    def setup(cls, feature_cov):
+    def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
         cls._chol = np.linalg.cholesky(feature_cov)
 
     @property
@@ -1127,6 +1200,7 @@ class randomized_sqrtlasso(randomized_lasso):
                                                    alternatives,
                                                    ndraw=self.ndraw,
                                                    burnin=self.burnin,
+                                                   level=self.confidence,
                                                    compute_intervals=compute_intervals)
 
         if len(pvalues) > 0:
@@ -1229,9 +1303,7 @@ class randomized_lasso_full_aggressive_half(randomized_lasso_full_aggressive):
 
 randomized_lasso_full_aggressive.register(), randomized_lasso_full_aggressive_half.register()
 
-
-
-class randomized_lasso_R_theory(randomized_lasso):
+class randomized_lasso_R_theory(parametric_method):
 
     method_name = Unicode("Randomized LASSO (R code)")
     selective_Rmethod = True
@@ -1285,9 +1357,10 @@ class randomized_lasso_R_theory(randomized_lasso):
         pvalues = np.asarray(rpy.r('pvalues'))
         intervals = np.asarray(rpy.r('intervals'))
         numpy2ri.deactivate()
-        return active_set, pvalues, intervals
-
-
+        if len(active_set) > 0:
+            return active_set, pvalues
+        else:
+            return [], []
 
 randomized_lasso_R_theory.register()
 
@@ -1336,3 +1409,20 @@ class data_splitting_1se(parametric_method):
         else:
             return [], []
 data_splitting_1se.register()
+
+
+class tuned_lasso(parametric_method):
+
+    method_name = Unicode("Tuned LASSO")
+    model_target = Unicode("full")
+
+    def point_estimator(self):
+
+        X, Y = self.X, self.Y
+        X_new, Y_new = self.data_generating_mechanism.generate()[:2]
+        n, p = X.shape
+
+        active = np.zeros(p, np.bool)
+        beta = np.zeros(p)
+        return active, beta
+tuned_lasso.register()

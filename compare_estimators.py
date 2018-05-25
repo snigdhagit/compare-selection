@@ -8,7 +8,7 @@ import pandas as pd
 
 from instances import data_instances
 from utils import gaussian_setup, summarize
-from statistics import interval_statistic, interval_summary
+from statistics import estimator_statistic, estimator_summary
 from gaussian_methods import methods
 
 # import knockoff_phenom # more instances
@@ -61,9 +61,9 @@ def compare(instance,
             if result_df is not None:
                 result_df['instance_id'] = instance_id
                 result_df['method_param'] = str(method_params.loc[idx])
+                result_df['model_target'] = M.model_target
                 result_df['method_name'] = method_name
                 result_df['class_name'] = class_name
-                result_df['model_target'] = M.model_target
                 results.append(result_df)
             else:
                 print('Result was empty.')
@@ -142,6 +142,14 @@ def main(opts):
 
     csvfiles = []
 
+    if opts.all_methods_noR: # noR takes precedence if both are used
+        new_opts.methods = sorted([n for n, m in methods.items() if not m.selectiveR_method])
+    elif opts.all_methods:
+        new_opts.methods = sorted(methods.keys())
+    
+    if opts.wide_only: # only allow methods that are ok if p>n
+        new_opts.methods = [m for m in new_opts.methods if m.wide_OK]
+
     for rho, signal in product(np.atleast_1d(opts.rho),
                                signal_vals):
 
@@ -179,8 +187,8 @@ def main(opts):
         csvfiles.append(new_opts.csvfile)
 
         compare(instance,
-                interval_statistic,
-                interval_summary,
+                estimator_statistic,
+                estimator_summary,
                 nsim=new_opts.nsim,
                 methods=_methods,
                 verbose=new_opts.verbose,
@@ -203,7 +211,7 @@ if __name__ == "__main__":
 Compare different LASSO methods in terms of full model FDR and Power.
 
 Try:
-    python compare_intervals.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv
+    python compare_estimators.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv
 ''')
     parser.add_argument('--instance',
                         default='AR_instance',
@@ -231,8 +239,6 @@ Try:
                         default=0.,
                         dest='rho',
                         help='Value of AR(1), equicor or mixed param.')
-    parser.add_argument('--q', default=0.2, type=float,
-                        help='target for FDR (default 0.2)')
     parser.add_argument('--nsim', default=100, type=int,
                         help='How many repetitions?')
     parser.add_argument('--verbose', action='store_true',
@@ -241,6 +247,19 @@ Try:
                         dest='htmlfile')
     parser.add_argument('--csvfile', help='CSV file to store results looped over (signal, rho). Serves as a file base for individual (signal, rho) pairs.',
                         dest='csvfile')
+    parser.add_argument('--all_methods', help='Run all methods.',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--all_methods_noR', help='Run all methods except the R selectiveInference methods. Takes precendence over --all_methods when both used.',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--wide_only', help='Require methods that are OK for wide -- silently ignore other methods.',
+                        default=False,
+                        action='store_true')
+
+    parser.add_argument('--cor_thresh', help='Correlation threshold for determining true or false discovery',
+                        default=0.5,
+                        type=float)
 
     opts = parser.parse_args()
 
