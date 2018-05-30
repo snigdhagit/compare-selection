@@ -45,7 +45,7 @@ def compare(instance,
         instance_hash.update(X.tobytes())
         instance_hash.update(Y.tobytes())
         instance_hash.update(beta.tobytes())
-        instance_id = instance_hash.digest()
+        instance_id = instance_hash.hexdigest()
 
         l_min, l_1se, l_theory, sigma_reid = gaussian_setup(X.copy(), Y.copy(), run_CV=run_CV)
 
