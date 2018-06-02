@@ -21,6 +21,9 @@ from selection.randomized.modelQ import modelQ as randomized_modelQ
 
 from utils import BHfilter
 
+from selection.randomized.base import restricted_estimator
+
+
 # Rpy
 
 import rpy2.robjects as rpy
@@ -743,8 +746,8 @@ class randomized_lasso(parametric_method):
     lambda_choice = Unicode("theory")
     randomizer_scale = Float(1)
 
-    ndraw = 15000
-    burnin = 2000
+    ndraw = 10000
+    burnin = 1000
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -755,9 +758,11 @@ class randomized_lasso(parametric_method):
     def method_instance(self):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
             self._method_instance = random_lasso_method.gaussian(self.X,
                                                                  self.Y,
-                                                                 self.lagrange * np.sqrt(n),
+                                                                 feature_weights = self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(mean_diag) / np.sqrt(n),
                                                                  randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
         return self._method_instance
 
@@ -775,13 +780,19 @@ class randomized_lasso(parametric_method):
 
         active = signs != 0
 
+        X_active = X[:,active_set]
+        observed_target = restricted_estimator(rand_lasso.loglike, active_set)
+        dispersion = ((Y - rand_lasso.loglike.saturated_loss.mean_function(
+            X_active.dot(observed_target))) ** 2 / rand_lasso._W).sum() / (n - X_active.shape[1])
+
         (observed_target, 
          cov_target, 
          cov_target_score, 
          alternatives) = form_targets(self.model_target,
                                       rand_lasso.loglike,
                                       rand_lasso._W,
-                                      active)
+                                      active,
+                                      **{'dispersion': dispersion})
         if active.sum() > 0:
             _, pvalues, intervals = rand_lasso.summary(observed_target, 
                                                        cov_target, 
@@ -1095,13 +1106,14 @@ class randomized_sqrtlasso(randomized_lasso):
         active = signs != 0
 
 
-        (observed_target, 
+        (observed_target,
          cov_target, 
          cov_target_score, 
          alternatives) = form_targets(self.model_target,
                                       rand_lasso.loglike,
                                       rand_lasso._W,
                                       active)
+
         _, pvalues, intervals = rand_lasso.summary(observed_target, 
                                                    cov_target, 
                                                    cov_target_score, 
@@ -1210,43 +1222,59 @@ class randomized_lasso_full_aggressive_half(randomized_lasso_full_aggressive):
 
 randomized_lasso_full_aggressive.register(), randomized_lasso_full_aggressive_half.register()
 
+
+
 class randomized_lasso_R_theory(randomized_lasso):
 
     method_name = Unicode("Randomized LASSO (R code)")
     selective_Rmethod = True
 
-    def generate_pvalues(self):
+    def generate_summary(self, compute_intervals=False):
         numpy2ri.activate()
         rpy.r.assign('X', self.X)
         rpy.r.assign('y', self.Y)
         rpy.r('y = as.numeric(y)')
         rpy.r.assign('q', self.q)
         rpy.r.assign('lam', self.lagrange[0])
+        rpy.r.assign("randomizer_scale", self.randomizer_scale)
         rpy.r('''
         n = nrow(X)
         p = ncol(X)
         lam = lam * sqrt(n)
-        result = randomizedLasso(X, y, lam, ridge_term=sd(y) * sqrt(n), 
-                                 noise_scale = sd(y) * 0.5 * sqrt(n), family='gaussian')
+        mean_diag = mean(apply(X^2, 2, sum))
+        ridge_term = sqrt(mean_diag) * sd(y) / sqrt(n)
+        result = randomizedLasso(X, y, lam, ridge_term=ridge_term,
+                                 noise_scale = randomizer_scale * sd(y) * sqrt(n), family='gaussian')
         active_set = result$active_set
         sigma_est = sigma(lm(y ~ X[,active_set] - 1))
         targets = selectiveInference:::compute_target(result, 'partial', sigma_est = sigma_est, 
                                  construct_pvalues=rep(TRUE, length(active_set)), 
                                  construct_ci=rep(FALSE, length(active_set)))
         out = randomizedLassoInf(result,
-                                 targets=targets)
+                                 targets=targets,
+                                 sampler = "norejection",
+                                 level=0.9,
+                                 burnin=1000,
+                                 nsample=10000)
+
         pvalues = out$pvalues
         active_set = active_set - 1
+        intervals = out$ci
         ''')
 
         pvalues = np.asarray(rpy.r('pvalues'))
         active_set = np.asarray(rpy.r('active_set'))
+        intervals = np.asarray(rpy.r('intervals'))
         numpy2ri.deactivate()
         if len(active_set) > 0:
-            return active_set, pvalues
+            return active_set, pvalues, intervals
         else:
-            return [], []
+            return [], [], []
+
+
 randomized_lasso_R_theory.register()
+
+
 
 class data_splitting_1se(parametric_method):
 
