@@ -783,9 +783,19 @@ class randomized_lasso(parametric_method):
         # estimates sigma
         # JM: for transparency it's better not to have this digged down in the code
         X_active = X[:,active_set]
+
         observed_target = restricted_estimator(rand_lasso.loglike, active_set)
         dispersion = ((Y - rand_lasso.loglike.saturated_loss.mean_function(
             X_active.dot(observed_target))) ** 2 / rand_lasso._W).sum() / (n - X_active.shape[1])
+
+        rpy.r.assign('X_active', X_active)
+        rpy.r.assign('Y', Y)
+        rpy.r('X_active=as.matrix(X_active)')
+        rpy.r('Y=as.numeric(Y)')
+        rpy.r('sigma_est = sigma(lm(Y~ X_active - 1))')
+        dispersion = rpy.r('sigma_est')
+
+        print("dispersion (sigma est for Python)", dispersion)
 
         (observed_target, 
          cov_target, 
@@ -1253,7 +1263,7 @@ class randomized_lasso_R_theory(randomized_lasso):
             active_set = -1
         } else{
             sigma_est = sigma(lm(y ~ X[,active_set] - 1))
-            cat("sigma est", sigma_est,"\n")
+            cat("sigma est for R", sigma_est,"\n")
             targets = selectiveInference:::compute_target(result, 'partial', sigma_est = sigma_est,
                                  construct_pvalues=rep(TRUE, length(active_set)), 
                                  construct_ci=rep(compute_intervals, length(active_set)))
