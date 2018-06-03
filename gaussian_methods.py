@@ -780,6 +780,8 @@ class randomized_lasso(parametric_method):
 
         active = signs != 0
 
+        # estimates sigma
+        # JM: for transparency it's better not to have this digged down in the code
         X_active = X[:,active_set]
         observed_target = restricted_estimator(rand_lasso.loglike, active_set)
         dispersion = ((Y - rand_lasso.loglike.saturated_loss.mean_function(
@@ -798,10 +800,10 @@ class randomized_lasso(parametric_method):
                                                        cov_target, 
                                                        cov_target_score, 
                                                        alternatives,
+                                                       level=0.9,
                                                        ndraw=self.ndraw,
                                                        burnin=self.burnin,
                                                        compute_intervals=compute_intervals)
-
             return active_set, pvalues, intervals
         else:
             return [], [], []
@@ -1237,6 +1239,7 @@ class randomized_lasso_R_theory(randomized_lasso):
         rpy.r.assign('q', self.q)
         rpy.r.assign('lam', self.lagrange[0])
         rpy.r.assign("randomizer_scale", self.randomizer_scale)
+        rpy.r.assign("compute_intervals", compute_intervals)
         rpy.r('''
         n = nrow(X)
         p = ncol(X)
@@ -1246,30 +1249,39 @@ class randomized_lasso_R_theory(randomized_lasso):
         result = randomizedLasso(X, y, lam, ridge_term=ridge_term,
                                  noise_scale = randomizer_scale * sd(y) * sqrt(n), family='gaussian')
         active_set = result$active_set
-        sigma_est = sigma(lm(y ~ X[,active_set] - 1))
-        targets = selectiveInference:::compute_target(result, 'partial', sigma_est = sigma_est, 
+        if (length(active_set)==0){
+            active_set = -1
+        } else{
+            sigma_est = sigma(lm(y ~ X[,active_set] - 1))
+            cat("sigma est", sigma_est,"\n")
+            targets = selectiveInference:::compute_target(result, 'partial', sigma_est = sigma_est,
                                  construct_pvalues=rep(TRUE, length(active_set)), 
-                                 construct_ci=rep(FALSE, length(active_set)))
-        out = randomizedLassoInf(result,
+                                 construct_ci=rep(compute_intervals, length(active_set)))
+
+            out = randomizedLassoInf(result,
                                  targets=targets,
                                  sampler = "norejection",
                                  level=0.9,
                                  burnin=1000,
                                  nsample=10000)
-
-        pvalues = out$pvalues
-        active_set = active_set - 1
-        intervals = out$ci
+            active_set=active_set-1
+            pvalues = out$pvalues
+            intervals = out$ci
+        }
         ''')
 
+        active_set = np.asarray(rpy.r('active_set'), np.int)
+        print(active_set)
+
+        if active_set[0]==-1:
+            numpy2ri.deactivate()
+            return [], [], []
+
         pvalues = np.asarray(rpy.r('pvalues'))
-        active_set = np.asarray(rpy.r('active_set'))
         intervals = np.asarray(rpy.r('intervals'))
         numpy2ri.deactivate()
-        if len(active_set) > 0:
-            return active_set, pvalues, intervals
-        else:
-            return [], [], []
+        return active_set, pvalues, intervals
+
 
 
 randomized_lasso_R_theory.register()
