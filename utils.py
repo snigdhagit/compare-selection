@@ -7,6 +7,34 @@ import rpy2.robjects as rpy
 from rpy2.robjects import numpy2ri
 rpy.r('suppressMessages(library(selectiveInference)); suppressMessages(library(knockoff))') # R libraries we will use
 
+
+rpy.r("""
+estimate_sigma_data_splitting  = function(X,y, verbose=FALSE){
+  nrep = 10
+  sigma_est = 0
+  nest = 0
+  for (i in 1:nrep){
+    n=nrow(X)
+    m=floor(n/2)
+    subsample = sample(1:n, m, replace=FALSE)
+    leftover = setdiff(1:n, subsample)
+    CV = cv.glmnet(X[subsample,], y[subsample], standardize=FALSE, intercept=FALSE, family="gaussian")
+    beta_hat = coef(CV, s="lambda.min")[-1]
+    selected = which(beta_hat!=0)
+    if (verbose){
+      print(c("nselected", length(selected)))
+    }
+    if (length(selected)>0){
+      LM = lm(y[leftover]~X[leftover,][,selected])
+      sigma_est = sigma_est+sigma(LM)
+      nest = nest+1
+    }
+  }
+  return(sigma_est/nest)
+}
+
+""")
+
 def gaussian_setup(X, Y, run_CV=True):
     """
 
@@ -17,9 +45,17 @@ def gaussian_setup(X, Y, run_CV=True):
     """
     n, p = X.shape
 
-    Xn = X / np.sqrt((X**2).sum(0))[None, :] 
+    Xn = X / np.sqrt((X**2).sum(0))[None, :]
 
-    l_theory = np.fabs(Xn.T.dot(np.random.standard_normal((n, 500)))).max(1).mean() * np.ones(p) * np.std(Y)
+    numpy2ri.activate()
+    rpy.r.assign('X', X)
+    rpy.r.assign('Y', Y)
+    rpy.r('X=as.matrix(X)')
+    rpy.r('Y=as.numeric(Y)')
+    rpy.r('sigma_ds=estimate_sigma_data_splitting(X,Y)')
+    sigma_ds = rpy.r('sigma_ds')
+
+    l_theory = np.fabs(Xn.T.dot(np.random.standard_normal((n, 500)))).max(1).mean() * np.ones(p) * sigma_ds
 
     if run_CV:
         numpy2ri.activate()
@@ -38,6 +74,7 @@ def gaussian_setup(X, Y, run_CV=True):
         return L * np.sqrt(X.shape[0]), L1 * np.sqrt(X.shape[0]), l_theory, sigma_reid
     else:
         return None, None, l_theory, None
+
 
 def BHfilter(pval, q=0.2):
     numpy2ri.activate()
