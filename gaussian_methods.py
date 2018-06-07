@@ -34,7 +34,6 @@ methods = {}
 class generic_method(HasTraits):
 
     need_CV = False
-
     selectiveR_method = False
     wide_ok = True # ok for p>= n?
 
@@ -93,6 +92,7 @@ class knockoffs_mf(generic_method):
     method_name = Unicode('Knockoffs')
     knockoff_method = Unicode('Second order')
     model_target = Unicode("full")
+    selectiveR_method = True
 
     def select(self):
         try:
@@ -116,6 +116,7 @@ class knockoffs_sigma(generic_method):
     method_name = Unicode('Knockoffs')
     knockoff_method = Unicode("ModelX (asdp)")
     model_target = Unicode("full")
+    selectiveR_method = True
 
     @classmethod
     def setup(cls, feature_cov, data_generating_mechanism):
@@ -209,6 +210,7 @@ class knockoffs_sigma_equi(knockoffs_sigma):
 
     knockoff_method = Unicode('ModelX (equi)')
     factor_method = 'equi'
+    selectiveR_method = True
 
 knockoffs_sigma_equi.register()
 
@@ -219,6 +221,7 @@ class knockoffs_orig(generic_method):
     method_name = Unicode("Knockoffs")
     knockoff_method = Unicode('Candes & Barber')
     model_target = Unicode('full')
+    selectiveR_method = True
 
     def select(self):
         try:
@@ -244,6 +247,7 @@ class knockoffs_fixed(generic_method):
     method_name = Unicode("Knockoffs")
     knockoff_method = Unicode('Fixed')
     model_target = Unicode('full')
+    selectiveR_method = True
 
     def select(self):
         try:
