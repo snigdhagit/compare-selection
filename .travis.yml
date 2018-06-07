@@ -28,7 +28,7 @@ before_install:
 
 install:
   # Install selection
-  - pip install traitlets scikit-learn pandas
+  - pip install traitlets scikit-learn 
   - git submodule update --init 
   - cd R-selective
   - git submodule update --init 
@@ -39,7 +39,7 @@ install:
   - pip install -e .
   - cd ../selective-inference
   - git submodule update --init 
-  - pip install  -r requirements.txt; 
+  - pip install rpy2 mpmath pyinter
   - pip install -e .
   - cd ..
 
