@@ -552,11 +552,15 @@ class liu_R_theory(liu_theory):
         penalty_factor = rep(1, p);
         lam = lam / sqrt(n);  # lambdas are passed a sqrt(n) free from python code
         soln = selectiveInference:::solve_problem_glmnet(X, y, lam, penalty_factor=penalty_factor, loss="ls")
-        PVS = selectiveInference:::inference_group_lasso(X, y, 
-                                                         soln, groups=1:ncol(X), 
-                                                         lambda=lam, penalty_factor=penalty_factor, 
-                                                         sigma_est, loss="ls", algo="Q", 
-                                                         construct_ci=FALSE)
+        PVS = ROSI(X, 
+                   y, 
+                   soln,
+                   lambda=lam, 
+                   penalty_factor=penalty_factor, 
+                   dispersion=sigma_est^2, 
+                   family='gaussian',
+                   solver="QP",
+                   construct_ci=FALSE)
         active_vars=PVS$active_vars - 1 # for 0-based
         pvalues = PVS$pvalues
         ''')
