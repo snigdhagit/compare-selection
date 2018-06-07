@@ -19,7 +19,7 @@ env:
 before_install:
   - source travis-tools/utils.sh
   - travis_before_install
-  - sudo apt-get install software-properties-common
+  - sudo apt-get install software-properties-common python-pandas
   - sudo add-apt-repository -y ppa:marutter/c2d4u
   - sudo add-apt-repository -y ppa:marutter/rrutter
   - sudo apt-get update
@@ -28,7 +28,7 @@ before_install:
 
 install:
   # Install selection
-  - pip install traitlets
+  - pip install traitlets scikit-learn pandas
   - git submodule update --init 
   - cd R-selective
   - git submodule update --init 
