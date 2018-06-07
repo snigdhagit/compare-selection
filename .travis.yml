@@ -1,3 +1,5 @@
+git:
+   depth: 1
 language: python
 dist: trusty
 python:
