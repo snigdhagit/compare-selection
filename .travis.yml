@@ -30,6 +30,9 @@ install:
   # Install selection
   - pip install traitlets scikit-learn 
   - git submodule update --init 
+  - cd selective-inference 
+  - git log
+  - cd ..
   - cd R-selective
   - git submodule update --init 
   - sudo Rscript -e "install.packages(c('glmnet', 'intervals', 'adaptMCMC', 'gglasso', 'knockoff'), repos='http://cloud.r-project.org')"
