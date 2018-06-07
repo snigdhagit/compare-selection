@@ -554,8 +554,12 @@ class liu_R_theory(liu_theory):
         }
 
         penalty_factor = rep(1, p);
-        lam = lam / sqrt(n);  # lambdas are passed a sqrt(n) free from python code
-        soln = selectiveInference:::solve_problem_glmnet(X, y, lam, penalty_factor=penalty_factor, loss="ls")
+        lam = lam * sqrt(n);  # lambdas are passed a sqrt(n) free from python code
+        soln = selectiveInference:::solve_problem_glmnet(X, 
+                                                         y, 
+                                                         lam/n, 
+                                                         penalty_factor=penalty_factor, 
+                                                         loss="ls")
         PVS = ROSI(X, 
                    y, 
                    soln,
@@ -1096,6 +1100,7 @@ randomized_lasso_mle.register()
 
 class randomized_lasso_half_pop_1se(randomized_lasso_half_1se):
 
+    model_target = Unicode("full")
     method_name = Unicode("Randomized ModelQ (pop)")
     randomizer_scale = Float(0.5)
     nsample = 15000
@@ -1157,7 +1162,7 @@ randomized_lasso_half_pop_1se.register(), randomized_lasso_half_semi_1se.registe
 class randomized_lasso_half_pop_aggressive(randomized_lasso_aggressive_half):
 
     method_name = Unicode("Randomized ModelQ (pop)")
-
+    model_target = Unicode("full")
     randomizer_scale = Float(0.5)
     nsample = 10000
     burnin = 2000
