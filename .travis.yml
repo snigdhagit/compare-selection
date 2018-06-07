@@ -48,6 +48,6 @@ install:
 
 # command to run tests, e.g. python setup.py test
 script:
-    - python compare.py --all_methods_noR --rho 0 0.3 --csvfile blah3.csv --nsample 500 --nfeature 100 --nsignal 10 --signal 4 3 --htmlfile blue.html --verbose --nsim 5
-    - python compare.py --all_methods_noR --wide_only --rho 0 --csvfile blah3.csv --nsample 400 --nfeature 500 --nsignal 10 --signal 3 --htmlfile blue.html --verbose --nsim 5
+    - python compare.py --all_methods_noR --rho 0 0.3 --csvfile blah3.csv --nsample 500 --nfeature 100 --nsignal 10 --signal 4 3 --htmlfile blue.html --verbose --nsim 3
+
 
