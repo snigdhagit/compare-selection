@@ -48,6 +48,7 @@ class equicor_instance(data_instance):
     l_theory = Float()
     feature_cov = Instance(np.ndarray)
     signal = Float(4.)
+    noise = Float(1.)
 
     @default('l_theory')
     def _default_l_theory(self):
@@ -117,9 +118,9 @@ class equicor_instance(data_instance):
             beta[:s] = self.signal / np.sqrt(n) # local alternatives
             np.random.shuffle(beta)
             beta = randomize_signs(beta)
-            self._beta = beta
+            self._beta = beta * self.noise
 
-        Y = X.dot(self._beta) + np.random.standard_normal(n)
+        Y = X.dot(self._beta) + self.noise * np.random.standard_normal(n)
         return X, Y, self._beta
 
 equicor_instance.register()

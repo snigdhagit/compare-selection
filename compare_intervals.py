@@ -49,6 +49,8 @@ def compare(instance,
 
         l_min, l_1se, l_theory, sigma_reid = gaussian_setup(X.copy(), Y.copy(), run_CV=run_CV)
 
+        l_theory = np.sqrt(2 * np.log(X.shape[1])) * np.ones(X.shape[1])
+
         for method, method_name, class_name, idx in zip(methods, 
                                                         method_names,
                                                         class_names,
@@ -162,13 +164,14 @@ def main(opts):
         try:
             _methods = [methods[n] for n in new_opts.methods]
         except KeyError: # list the methods and quit
-            print("Method not found. Valid methods:")
+            invalid_methods = [n for n in new_opts.methods if n not in methods.keys()]
+            print("Methods %s not found. Valid methods:" % str(invalid_methods))
             print(sorted(methods.keys()))
             return
         try:
             _instance = data_instances[new_opts.instance]
         except KeyError: # list the methods and quit
-            print("Data generating mechanism not found. Valid mechanisms:")
+            print("Data generating mechanism %s not found. Valid mechanisms:" % new_opts.instance)
             print(sorted(data_instances.keys()))
             return
             

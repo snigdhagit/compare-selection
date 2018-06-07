@@ -164,13 +164,14 @@ def main(opts):
         try:
             _methods = [methods[n] for n in new_opts.methods]
         except KeyError: # list the methods and quit
-            print("Method not found. Valid methods:")
+            invalid_methods = [n for n in new_opts.methods if n not in methods.keys()]
+            print("Methods %s not found. Valid methods:" % str(invalid_methods))
             print(sorted(methods.keys()))
             return
         try:
             _instance = data_instances[new_opts.instance]
         except KeyError: # list the methods and quit
-            print("Data generating mechanism not found. Valid mechanisms:")
+            print("Data generating mechanism %s not found. Valid mechanisms:" % new_opts.instance)
             print(sorted(data_instances.keys()))
             return
             

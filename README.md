@@ -27,15 +27,13 @@ Testing
 If installed correctly, the following should give you some results for a small problem:
 
 ```
-python compare_fdr.py --instance AR_instance --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory 
-       liu_theory --htmlfile AR.html --csvfile AR.csv --verbose --nsim 20
+python compare_fdr.py --instance AR_instance --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile AR.html --csvfile AR.csv --verbose --nsim 20 --rho 0. --signal 4.
 ```
 
 For a grid of signal and / or AR(1) parameters try
 
 ```
-python compare_fdr.py --instance AR_instance --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory 
-       liu_theory --htmlfile AR.html --signal 3 4 5 --rho 0 0.5 --csvfile AR_grid.csv --verbose --nsim 20
+python compare_fdr.py --instance AR_instance --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile AR.html --signal 3 4 5 --rho 0 0.5 --csvfile AR_grid.csv --verbose --nsim 20
 ```
 
 Also, try 

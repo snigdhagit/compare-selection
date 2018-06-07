@@ -48,6 +48,7 @@ class generic_method(HasTraits):
     def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
         cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
         (self.X,
@@ -78,9 +79,9 @@ class generic_method(HasTraits):
         return beta[active]
 
     def get_target(self, active, beta):
-        if self.model_target not in ['selected', 'full']:
+        if self.model_target not in ['selected', 'full', 'debiased']:
             raise ValueError('Gaussian methods only have selected or full targets')
-        if self.model_target == 'full':
+        if self.model_target in ['full', 'debiased']:
             return self.full_target(active, beta)
         else:
             return self.selected_target(active, beta)
@@ -121,6 +122,7 @@ class knockoffs_sigma(generic_method):
 
         cls.feature_cov = feature_cov
         cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
         numpy2ri.activate()
 
         # see if we've factored this before
@@ -321,7 +323,9 @@ class liu_theory(parametric_method):
                 dispersion = self.dispersion
             else:
                 dispersion = None
-            S = L.summary(compute_intervals=compute_intervals, dispersion=dispersion, level=self.confidence)
+            S = L.summary(compute_intervals=compute_intervals, 
+                          dispersion=dispersion, 
+                          level=self.confidence)
             return S
 
     def generate_pvalues(self):
@@ -337,7 +341,8 @@ class liu_theory(parametric_method):
         S = self.generate_summary(compute_intervals=True)
         if S is not None:
             active_set = np.array(S['variable'])
-            lower, upper = np.asarray(S['lower_confidence']), np.asarray(S['upper_confidence'])
+            lower, upper = (np.asarray(S['lower_confidence']), 
+                            np.asarray(S['upper_confidence']))
             return active_set, lower, upper
         else:
             return [], [], []
@@ -376,6 +381,7 @@ class liu_modelQ_semi_aggressive(liu_aggressive):
     def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
         cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
         cls._chol = np.linalg.cholesky(feature_cov)
 
     @property
@@ -461,6 +467,40 @@ class liu_sparseinv_1se(liu_1se):
         return self._method_instance
 liu_sparseinv_1se.register()
 
+class liu_sparseinv_theory(liu_theory):
+
+    method_name = Unicode("ROSI")
+
+    """
+    Force the use of the debiasing matrix.
+    """
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance.sparse_inverse = True
+        return self._method_instance
+liu_sparseinv_theory.register()
+
+class liu_sparseinv_CV(liu_CV):
+
+    method_name = Unicode("ROSI")
+
+    """
+    Force the use of the debiasing matrix.
+    """
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance.sparse_inverse = True
+        return self._method_instance
+liu_sparseinv_CV.register()
+
 class liu_sparseinv_1se_known(liu_1se):
 
     method_name = Unicode("ROSI - known")
@@ -470,8 +510,13 @@ class liu_sparseinv_1se_known(liu_1se):
     Force the use of the debiasing matrix.
     """
 
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        liu_1se.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.dispersion = self.__class__.noise**2
+
     @property
     def method_instance(self):
+
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
             self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
@@ -630,7 +675,8 @@ class lee_theory(parametric_method):
         S = self.generate_summary(compute_intervals=True)
         if S is not None:
             active_set = np.array(S['variable'])
-            lower, upper = np.asarray(S['lower_confidence']), np.asarray(S['upper_confidence'])
+            lower, upper = (np.asarray(S['lower_confidence']), 
+                            np.asarray(S['upper_confidence']))
             return active_set, lower, upper
         else:
             return [], [], []
@@ -745,7 +791,8 @@ class sqrt_lasso(parametric_method):
         S = self.generate_summary(compute_intervals=True)
         if S is not None:
             active_set = np.array(S['variable'])
-            lower, upper = np.asarray(S['lower_confidence']), np.asarray(S['upper_confidence'])
+            lower, upper = (np.asarray(S['lower_confidence']), 
+                            np.asarray(S['upper_confidence']))
             return active_set, lower, upper
         else:
             return [], [], []
@@ -759,10 +806,10 @@ class randomized_lasso(parametric_method):
     model_target = Unicode("selected")
     lambda_choice = Unicode("theory")
     randomizer_scale = Float(1)
-    confidence = Float(0.9)
+    confidence = Float(0.95)
     use_MLE = Bool(False)
-    ndraw = 15000
-    burnin = 2000
+    ndraw = 25000
+    burnin = 5000
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -807,6 +854,11 @@ class randomized_lasso(parametric_method):
 
         print("dispersion (sigma est for Python)", dispersion)
 
+        kwargs = {}
+        if self.model_target == 'debiased':
+            kwargs['penalty'] = rand_lasso.penalty
+            
+        kwargs['dispersion'] = dispersion
         (observed_target, 
          cov_target, 
          cov_target_score, 
@@ -814,7 +866,8 @@ class randomized_lasso(parametric_method):
                                       rand_lasso.loglike,
                                       rand_lasso._W,
                                       active,
-                                      **{'dispersion': dispersion})
+                                      **kwargs)
+
         if active.sum() > 0:
             if not self.use_MLE:
                 _, pvalues, intervals = rand_lasso.summary(observed_target, 
@@ -1063,6 +1116,7 @@ class randomized_lasso_half_semi_1se(randomized_lasso_half_1se):
     def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
         cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
         cls._chol = np.linalg.cholesky(feature_cov)
 
     @property
@@ -1124,6 +1178,7 @@ class randomized_lasso_half_semi_aggressive(randomized_lasso_aggressive_half):
     def setup(cls, feature_cov, data_generating_mechanism):
         cls.feature_cov = feature_cov
         cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
         cls._chol = np.linalg.cholesky(feature_cov)
 
     @property
@@ -1233,7 +1288,8 @@ randomized_sqrtlasso_bigger.register(), randomized_sqrtlasso_bigger_half.registe
 
 class randomized_lasso_full(randomized_lasso):
 
-    model_target = Unicode('full')
+    method_name = Unicode("Randomized One-step")
+    model_target = Unicode('debiased')
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
@@ -1283,7 +1339,13 @@ class randomized_lasso_full_half_1se(randomized_lasso_full_1se):
     randomizer_scale = Float(0.5)
     pass
 
-randomized_lasso_full_half.register(), randomized_lasso_full_half_CV.register(), randomized_lasso_full_half_1se.register()
+class randomized_lasso_full_quarter_1se(randomized_lasso_full_half_1se):
+
+    need_CV = True
+    randomizer_scale = Float(0.25)
+    pass
+
+randomized_lasso_full_half.register(), randomized_lasso_full_half_CV.register(), randomized_lasso_full_half_1se.register(), randomized_lasso_full_quarter_1se.register()
 
 # Aggressive choice of lambda
 
@@ -1364,19 +1426,18 @@ class randomized_lasso_R_theory(parametric_method):
 
 randomized_lasso_R_theory.register()
 
-
-
-class data_splitting_1se(parametric_method):
+class data_splitting(parametric_method):
 
     method_name = Unicode('Data splitting')
     selection_frac = Float(0.5)
     model_target = Unicode("selected")
+    lambda_choice = Unicode('theory')
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
 
-        self.lagrange = l_1se * np.ones(X.shape[1])
+        self.lagrange = l_theory * np.ones(X.shape[1])
 
         n, p = self.X.shape
         n1 = int(self.selection_frac * n)
@@ -1427,7 +1488,63 @@ class data_splitting_1se(parametric_method):
             return self.active_set, lower, upper
         else:
             return [], [], []
+data_splitting.register()
+
+class data_splitting_1se(data_splitting):
+
+    lambda_choice = Unicode('1se')
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+
+        self.lagrange = l_1se * np.ones(X.shape[1])
+
+        n, p = self.X.shape
+        n1 = int(self.selection_frac * n)
+        X1, X2 = self.X1, self.X2 = self.X[:n1], self.X[n1:]
+        Y1, Y2 = self.Y1, self.Y2 = self.Y[:n1], self.Y[n1:]
+
+        pen = rr.weighted_l1norm(np.sqrt(n1) * self.lagrange, lagrange=1.)
+        loss = rr.squared_error(X1, Y1)
+        problem = rr.simple_problem(loss, pen)
+        soln = problem.solve()
+
+        self.active_set = np.nonzero(soln)[0]
+        self.signs = np.sign(soln)[self.active_set]
+
+        self._fit = True
 data_splitting_1se.register()
+
+class data_splitting_CV(data_splitting):
+
+    method_name = Unicode('Data splitting')
+    selection_frac = Float(0.5)
+    model_target = Unicode("selected")
+    lambda_choice = Unicode("CV")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+
+        self.lagrange = l_min * np.ones(X.shape[1])
+
+        n, p = self.X.shape
+        n1 = int(self.selection_frac * n)
+        X1, X2 = self.X1, self.X2 = self.X[:n1], self.X[n1:]
+        Y1, Y2 = self.Y1, self.Y2 = self.Y[:n1], self.Y[n1:]
+
+        pen = rr.weighted_l1norm(np.sqrt(n1) * self.lagrange, lagrange=1.)
+        loss = rr.squared_error(X1, Y1)
+        problem = rr.simple_problem(loss, pen)
+        soln = problem.solve()
+
+        self.active_set = np.nonzero(soln)[0]
+        self.signs = np.sign(soln)[self.active_set]
+
+        self._fit = True
+
+data_splitting_CV.register()
 
 
 class tuned_lasso(parametric_method):
