@@ -10,6 +10,7 @@ from instances import data_instances
 from utils import gaussian_setup, summarize
 from statistics import interval_statistic, interval_summary
 from gaussian_methods import methods
+import posi, knockoffs # register these methods
 
 # import knockoff_phenom # more instances
 

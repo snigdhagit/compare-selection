@@ -1,4 +1,5 @@
 import numpy as np, pandas as pd, time
+from utils import BHfilter
 
 def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
 
@@ -9,7 +10,7 @@ def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sig
     except AttributeError:
         return M, None 
 
-    if M.model_target == 'selected' and len(active) > 0:
+    if len(active) > 0:
         naive_lower, naive_upper = M.naive_intervals(active)[1:]
     else:
         naive_lower, naive_upper = None, None
@@ -49,7 +50,7 @@ def interval_summary(result):
     len_cover = np.array([(len(g.index), coverage_(g)) for _, g in instances])
 
     instances = result.groupby('instance_id')
-    naive_cover = np.array([(len(g.index), coverage_(g)) for _, g in instances])
+    naive_cover = np.array([(len(g.index), naive_coverage_(g)) for _, g in instances])
     naive_coverage = np.mean(naive_cover, 0)[1]
     active_vars, mean_coverage = np.mean(len_cover, 0)
     sd_coverage = np.std(len_cover[:,1])
@@ -97,7 +98,7 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
     except AttributeError:
         return M, None  # cannot make point estimator
 
-    if M.model_target == 'selected' and len(active) > 0:
+    if len(active) > 0:
         beta_naive = M.naive_estimator(active)[1]
     else:
         beta_naive = np.ones_like(point_estimate) * np.nan
@@ -144,9 +145,9 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
     toc = time.time()
     M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
     selected, active = M.select()
-    if M.model_target == 'selected' and len(active) > 0:
-        naive_pvalues = M.naive_pvalues(active)[1:]
-        naive_selected = BHFilter(naive_pvalues, q=M.q)
+    if len(active) > 0:
+        naive_pvalues = M.naive_pvalues(active)[1]
+        naive_selected = BHfilter(naive_pvalues, q=M.q)
     else:
         naive_selected = None
     tic = time.time()
