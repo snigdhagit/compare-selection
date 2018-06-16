@@ -85,6 +85,80 @@ class generic_method(HasTraits):
         else:
             return self.selected_target(active, beta)
 
+# POSI selection
+# since there are no p-values we just use
+# marginal check, seeing if 0 in confidence interval
+
+# in order to make speed tolerable,
+# we compute POSI constant K on one instance only,
+# similar to knockoffs 
+
+class POSI(generic_method):
+
+    method_name = Unicode("POSI")
+    selectiveR_method = True
+
+    @classmethod
+    def setup(cls, feature_cov, data_generating_mechanism, method_cls, max_model_size=6, level=0.95):
+        cls.method_cls = method_cls
+        cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
+        numpy2ri.activate()
+
+        # see if we've factored this before
+
+        have_POSI_K = False
+        if not os.path.exists('.POSI_data'):
+            os.mkdir('.POSI_data')
+        posi_data = glob.glob('.POSI_data/*npz')
+        for posi_file in posi_data:
+            posi = np.load(posi_file)
+            posi_f = posi['feature_cov']
+            if ((posi_f.shape == feature_cov.shape) and
+                np.allclose(posi_f, feature_cov) and 
+                (posi['max_model_size'] == max_model_size) and 
+                (posi['level'] == level)):
+                have_posi_K = True
+                print('found POSI instance: %s' % posi)
+                cls.POSI_K = posi['K']
+
+        if not have_factorization:
+            print('simulating POSI constant')
+            cls.POSI_K = POSI_instance(feature_cov, max_model_size, n=10*feature_cov.shape[0])
+
+        numpy2ri.deactivate()
+
+    def select(self):
+        pass
+
+def POSI_instance(feature_cov, max_model_size, n, level=0.95):
+
+    numpy2ri.activate()
+    rpy.r.assign('Sigma', feature_cov)
+    chol = np.linalg.cholesky(feature_cov)
+    p = feature_cov.shape[0]
+    X = np.random.standard_normal((n, p)).dot(chol.T)
+
+    rpy.r.assign('X', X)
+    rpy.r.assign('max_model_size', max_model_size)
+    rpy.r.assign('level', level)
+    rpy.r('''
+    library(PoSI)
+    posi_obj = PoSI(X, modelSZ=1:max_model_size)
+    posi_K = summary(posi_obj)[1,'K.PoSI']
+    ''')
+    K = rpy.r("posi_K")
+
+    np.savez('.POSI_data/%s.npz' % (os.path.split(tempfile.mkstemp()[1])[1],),
+             K=K,
+             feature_cov=feature_cov,
+             level=level,
+             max_model_size=max_model_size)
+
+    return K
+
+
 # Knockoff selection
 
 class knockoffs_mf(generic_method):
@@ -285,6 +359,60 @@ class parametric_method(generic_method):
             return selected, active_set
         else:
             return [], active_set
+
+    def generate_summary(self, compute_intervals=False): 
+        raise NotImplementedError('abstract method, should return a data frame summary with "variable" denoting active set')
+
+    def generate_pvalues(self):
+        raise NotImplementedError('abstract method, should return (active_set, pvalues)')
+
+    def generate_pvalues(self):
+        raise NotImplementedError('abstract method, should return (active_set, lower_limit, upper_limit)')
+
+    def naive_pvalues(self, active_set):
+        """
+        selected model
+        """
+
+        numpy2ri.activate()
+        rpy.r.assign("X", self.X[:, active_set])
+        rpy.r.assign("Y", self.Y)
+        rpy.r('pval = summary(lm(Y ~ X - 1))$coef[,4]')
+        pval = np.asarray(rpy.r('pval'))
+        numpy2ri.deactivate()
+
+        return active_set, pval
+
+    def naive_intervals(self, active_set):
+        """
+        selected model
+        """
+        
+        numpy2ri.activate()
+        rpy.r.assign("X", self.X[:, active_set])
+        rpy.r.assign("Y", self.Y)
+        rpy.r.assign("level", self.confidence)
+        rpy.r('CI = confint(lm(Y ~ X - 1), level=level)')
+        CI = np.asarray(rpy.r('CI'))
+        numpy2ri.deactivate()
+
+        return active_set, CI[:, 0], CI[:, 1]
+
+    def naive_estimator(self, active_set):
+        """
+        selected model
+        """
+        
+        numpy2ri.activate()
+        rpy.r.assign("X", self.X[:, active_set])
+        rpy.r.assign("Y", self.Y)
+        rpy.r('beta_hat = coef(lm(Y ~ X - 1))')
+        beta_hat = np.asarray(rpy.r('beta_hat'))
+        n, p = self.X.shape
+        beta_full = np.zeros(p)
+        beta_full[active_set] = beta_hat
+
+        return active_set, beta_full
 
 # Liu, Markovic, Tibs selection
 
@@ -1043,6 +1171,7 @@ class randomized_lasso_half_1se(randomized_lasso_1se):
 class randomized_lasso_half_mle_1se(randomized_lasso_half_1se):
 
     method_name = Unicode("Randomized MLE")
+    randomizer_scale = Float(1.0)
     use_MLE = Bool(True)
     pass
 randomized_lasso_half_mle_1se.register()
