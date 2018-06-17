@@ -80,7 +80,7 @@ class POSI(parametric_method):
             numpy2ri.deactivate()
 
             selected = np.nonzero((L > 0) + (U < 0))[0]
-            return selected, selected
+            return selected, active_set
         else:
             return [], []
 

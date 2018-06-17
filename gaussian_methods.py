@@ -208,7 +208,7 @@ class liu_theory(parametric_method):
         n, p = X.shape
         if n < p:
             self.method_name = 'ROSI'
-        self.lagrange = l_theory * np.ones(X.shape[1])
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
 
     @property
     def method_instance(self):
@@ -265,7 +265,7 @@ class liu_aggressive(liu_theory):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         liu_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 
 liu_aggressive.register()
 
@@ -497,7 +497,7 @@ class liu_R_aggressive(liu_R_theory):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         liu_R_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 liu_R_aggressive.register()
 
 class lee_full_R_theory(liu_theory):
@@ -545,7 +545,7 @@ class lee_full_R_aggressive(lee_full_R_theory):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         lee_full_R_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 lee_full_R_aggressive.register()
 
 # Unrandomized selected
@@ -559,7 +559,7 @@ class lee_theory(parametric_method):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1])
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
 
     @property
     def method_instance(self):
@@ -655,7 +655,7 @@ class lee_aggressive(lee_theory):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = 0.8 * l_theory * np.ones(X.shape[1])
+        self.lagrange = 0.8 * l_theory * np.ones(X.shape[1]) * self.noise
 
 lee_aggressive.register()
 
@@ -666,7 +666,7 @@ class lee_weak(lee_theory):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = 2 * l_theory * np.ones(X.shape[1])
+        self.lagrange = 2 * l_theory * np.ones(X.shape[1]) * self.noise
 
 lee_weak.register()
 
@@ -732,7 +732,7 @@ class randomized_lasso(parametric_method):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1])
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
 
     @property
     def method_instance(self):
@@ -765,13 +765,13 @@ class randomized_lasso(parametric_method):
         X_active = X[:,active_set]
         resid = Y - X_active.dot(np.linalg.pinv(X_active).dot(Y))
         dispersion = np.sum(resid**2) / (n - active.sum())
-        print("dispersion (sigma est for Python)", dispersion)
+        print("dispersion (sigma est for Python), %s" % str(self.__class__), dispersion)
 
         kwargs = {}
         if self.model_target == 'debiased':
             kwargs['penalty'] = rand_lasso.penalty
             
-        kwargs['dispersion'] = dispersion
+        # kwargs['dispersion'] = dispersion
         (observed_target, 
          cov_target, 
          cov_target_score, 
@@ -891,7 +891,7 @@ class randomized_lasso_aggressive(randomized_lasso):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 
 class randomized_lasso_aggressive_half(randomized_lasso):
 
@@ -902,7 +902,7 @@ class randomized_lasso_aggressive_half(randomized_lasso):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 
 class randomized_lasso_weak_half(randomized_lasso):
 
@@ -913,7 +913,7 @@ class randomized_lasso_weak_half(randomized_lasso):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 2.
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 2. * self.noise
 randomized_lasso_weak_half.register()
 
 class randomized_lasso_aggressive_quarter(randomized_lasso):
@@ -923,7 +923,7 @@ class randomized_lasso_aggressive_quarter(randomized_lasso):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 
 randomized_lasso_aggressive.register(), randomized_lasso_aggressive_half.register(), randomized_lasso_aggressive_quarter.register()
 
@@ -1045,7 +1045,7 @@ class randomized_lasso_full(randomized_lasso):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1])
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
 
 class randomized_lasso_full_CV(randomized_lasso_full):
 
@@ -1107,7 +1107,7 @@ class randomized_lasso_full_aggressive(randomized_lasso_full):
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso_full.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 
 class randomized_lasso_full_aggressive_half(randomized_lasso_full_aggressive):
 
@@ -1189,7 +1189,7 @@ class data_splitting(parametric_method):
 
         parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
 
-        self.lagrange = l_theory * np.ones(X.shape[1])
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
 
         n, p = self.X.shape
         n1 = int(self.selection_frac * n)

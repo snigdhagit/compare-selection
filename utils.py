@@ -52,10 +52,8 @@ def gaussian_setup(X, Y, run_CV=True):
     rpy.r.assign('Y', Y)
     rpy.r('X=as.matrix(X)')
     rpy.r('Y=as.numeric(Y)')
-    rpy.r('sigma_ds=estimate_sigma_data_splitting(X,Y)')
-    sigma_ds = rpy.r('sigma_ds')
 
-    l_theory = np.fabs(Xn.T.dot(np.random.standard_normal((n, 500)))).max(1).mean() * np.ones(p) * sigma_ds
+    l_theory = np.fabs(Xn.T.dot(np.random.standard_normal((n, 500)))).max(1).mean() * np.ones(p)
 
     if run_CV:
         numpy2ri.activate()

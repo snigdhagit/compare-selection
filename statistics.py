@@ -145,10 +145,13 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
     toc = time.time()
     M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
     selected, active = M.select()
-    if len(active) > 0:
-        naive_pvalues = M.naive_pvalues(active)[1]
-        naive_selected = BHfilter(naive_pvalues, q=M.q)
-    else:
+    try:
+        if len(active) > 0:
+            naive_pvalues = M.naive_pvalues(active)[1]
+            naive_selected = BHfilter(naive_pvalues, q=M.q)
+        else:
+            naive_selected = None
+    except AttributeError:
         naive_selected = None
     tic = time.time()
     true_active = np.nonzero(beta)[0]
@@ -167,7 +170,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
         return M, pd.DataFrame([[TD / (len(true_active)*1.), 
                                  FD, 
                                  FDP, 
-                                 nTD / (len(true_active)*1.), 
+                                 np.maximum(nTD / (len(true_active)*1.), 1), 
                                  nFD,
                                  nFDP,
                                  tic-toc, 
@@ -202,6 +205,7 @@ def FDR_summary(result):
                            np.std(result['Full model FDP']) / np.sqrt(nresult),
                            np.mean(result['Naive full model FDP']), 
                            np.mean(result['Naive full model power']), 
+                           np.mean(result['Naive false discoveries']), 
                            np.mean(result['Time']),
                            np.mean(result['Active']),
                            result['model_target'].values[0]]],
@@ -213,6 +217,7 @@ def FDR_summary(result):
                                   'SD(Full model FDR)', 
                                   'Naive full model FDP',
                                   'Naive full model power',
+                                  'Naive false discoveries',
                                   'Time', 
                                   'Active',
                                   'Model'
