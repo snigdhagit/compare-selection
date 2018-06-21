@@ -79,7 +79,8 @@ class POSI(parametric_method):
             U = rpy.r('U')
             numpy2ri.deactivate()
 
-            selected = np.nonzero((L > 0) + (U < 0))[0]
+            pre_select = np.nonzero((L > 0) + (U < 0))[0]
+            selected = [active_set[i] for i in pre_select]
             return selected, active_set
         else:
             return [], []

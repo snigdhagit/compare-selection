@@ -23,7 +23,8 @@ def compare(instance,
             htmlfile=None,
             method_setup=True,
             csvfile=None,
-            q=0.2):
+            q=0.2,
+            concat=False):
     
     results = []
     
@@ -79,9 +80,15 @@ def compare(instance,
                     results_df[p] = instance.params[p][0]
 
                 if csvfile is not None:
-                    f = open(csvfile, 'w')
-                    f.write(results_df.to_csv(index_label=False) + '\n')
-                    f.close()
+                    if not concat or not os.path.exists(csvfile):
+                        f = open(csvfile, 'w')
+                        f.write(results_df.to_csv(index_label=False) + '\n')
+                        f.close()
+                    else:
+                        df_old = pd.read_csv(csvfile)
+                        results_df = pd.concat([results_df, df_old])
+                        f.write(results_df.to_csv(index_label=False) + '\n')
+                        f.close()
 
                 summary_df = summarize('method_param',
                                        results_df,
@@ -101,6 +108,9 @@ def compare(instance,
                     f = open(csvfile[:-4] + '_summary.csv', 'w')
                     f.write(summary_df.to_csv() + '\n')
                     f.close()
+
+        if len(np.unique(results_df['instance_id']) >= nsim):
+            break
 
 def get_method_params(methods):
 
@@ -223,6 +233,8 @@ Try:
     parser.add_argument('--methods', nargs='+', help='Which methods to use -- choose many. To see choices run --list_methods.', dest='methods')
     parser.add_argument('--list_methods',
                         dest='list_methods', action='store_true')
+    parser.add_argument('--concat',
+                        dest='concat', action='store_true', default=False)
     parser.add_argument('--nsample', default=800, type=int,
                         dest='n',
                         help='number of data points, n (default 800)')

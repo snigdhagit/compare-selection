@@ -726,8 +726,8 @@ class randomized_lasso(parametric_method):
     randomizer_scale = Float(1)
     confidence = Float(0.95)
     use_MLE = Bool(False)
-    ndraw = 25000
-    burnin = 5000
+    ndraw = 10000
+    burnin = 2000
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 

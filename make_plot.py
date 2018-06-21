@@ -34,6 +34,7 @@ def plot(df,
     # results, rho_results, signal_results = extract_results(df)
 
     methods = methods or np.unique(df['class_name'])
+    df = df.loc[df['class_name'].isin(methods)]
 
     df['Method'] = df['method_name']
     # plot with rho on x axis
