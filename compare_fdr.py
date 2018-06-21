@@ -81,11 +81,12 @@ def compare(instance,
                     if not concat or not os.path.exists(csvfile):
                         f = open(csvfile, 'w')
                         f.write(results_df.to_csv(index_label=False) + '\n')
+                        results_full = results_df
                         f.close()
                     else:
                         df_old = pd.read_csv(csvfile)
-                        results_df = pd.concat([results_df, df_old])
-                        f.write(results_df.to_csv(index_label=False) + '\n')
+                        results_full = pd.concat([results_df, df_old])
+                        f.write(results_full.to_csv(index_label=False) + '\n')
                         f.close()
 
                 summary_df = summarize('method_param',
@@ -101,7 +102,7 @@ def compare(instance,
                     f.write(instance.params.to_html())
                     f.close()
 
-        if len(np.unique(results_df['instance_id']) >= nsim):
+        if i > 0 and len(np.unique(results_full['instance_id'])) >= nsim:
             break
 
 def get_method_params(methods):
