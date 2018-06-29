@@ -37,6 +37,11 @@ def compare(instance,
 
     method_params, class_names, method_names = get_method_params(methods)
 
+    if csvfile is not None and os.path.exists(csvfile):
+        results_existing = pd.read_csv(csvfile)
+    else:
+        results_existing = None
+
     for i in range(nsim):
 
         X, Y, beta = instance.generate()
@@ -80,19 +85,16 @@ def compare(instance,
                     results_df[p] = instance.params[p][0]
 
                 if csvfile is not None:
-                    if not concat or not os.path.exists(csvfile):
-                        f = open(csvfile, 'w')
-                        f.write(results_df.to_csv(index_label=False) + '\n')
-                        f.close()
-                        results_full = results_df
+                    if results_existing is not None:
+                        results_full = pd.concat([results_existing, results_df])
                     else:
-                        df_old = pd.read_csv(csvfile)
-                        results_full = pd.concat([results_df, df_old])
-                        f.write(results_df.to_csv(index_label=False) + '\n')
-                        f.close()
+                        results_full = results_df
+                    f = open(csvfile, 'w')
+                    f.write(results_df.to_csv(index_label=False) + '\n')
+                    f.close()
 
                 summary_df = summarize('method_param',
-                                       results_df,
+                                       results_full,
                                        summary)
 
                 for p in instance.params.columns:

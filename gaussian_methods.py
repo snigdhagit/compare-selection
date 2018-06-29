@@ -18,6 +18,7 @@ from selection.algorithms.sqrt_lasso import choose_lambda
 from selection.truncated.gaussian import truncated_gaussian_old as TG
 from selection.randomized.lasso import lasso as random_lasso_method, form_targets
 from selection.randomized.modelQ import modelQ as randomized_modelQ
+from selection.randomized.randomization import randomization
 
 from utils import BHfilter
 
@@ -945,6 +946,49 @@ class randomized_lasso_half_1se(randomized_lasso_1se):
     need_CV = True
     randomizer_scale = Float(0.5)
     pass
+
+class randomized_lasso_1se_AR(randomized_lasso_1se):
+
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        randomized_lasso_half_1se.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+
+        n, p = X.shape
+
+        ARrho = []
+        for s in np.random.sample(100):
+            Xr = X[int(s*n)]
+            ARrho.append(np.corrcoef(Xr[1:], Xr[:-1])[0,1])
+        ARrho = np.mean(ARrho) 
+        print("AR parameter", ARrho)
+
+        mean_diag = np.mean((X ** 2).sum(0))
+        randomizer_scale = np.sqrt(mean_diag) * np.std(Y) * self.randomizer_scale
+
+        ARcov = ARrho**(np.abs(np.subtract.outer(np.arange(p), np.arange(p)))) * randomizer_scale**2 
+        self._randomizer = randomization.gaussian(ARcov)
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = random_lasso_method.gaussian(self.X,
+                                                                 self.Y,
+                                                                 feature_weights = self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(mean_diag) / np.sqrt(n),
+                                                                 randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+            self._method_instance.randomizer = self._randomizer
+        return self._method_instance
+randomized_lasso_1se_AR.register()
+
+class randomized_lasso_half_1se_AR(randomized_lasso_half_1se):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+randomized_lasso_half_1se_AR.register()
 
 class randomized_lasso_half_mle_1se(randomized_lasso_half_1se):
 
