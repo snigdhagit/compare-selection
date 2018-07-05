@@ -22,7 +22,7 @@ from selection.randomized.randomization import randomization
 
 from utils import BHfilter
 
-from selection.randomized.base import restricted_estimator
+from selection.base import restricted_estimator
 
 
 # Rpy
