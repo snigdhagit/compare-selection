@@ -53,11 +53,11 @@ class POSI90(parametric_method):
                 (posi['level'] == level)):
                 have_POSI_K = True
                 print('found POSI instance: %s' % posi)
-                cls.POSI_K = posi['K']
+                cls.POSI_K = float(posi['K'])
 
         if not have_POSI_K:
             print('simulating POSI constant')
-            cls.POSI_K = POSI_instance(feature_cov, max_model_size, n=10*feature_cov.shape[0])
+            cls.POSI_K = float(POSI_instance(feature_cov, max_model_size, n=10*feature_cov.shape[0]))
 
         numpy2ri.deactivate()
 
@@ -111,7 +111,7 @@ class POSI90(parametric_method):
 
 POSI90.register()
 
-class POSI80(parametric_method):
+class POSI80(POSI90):
 
     method_name = Unicode("POSI")
     selectiveR_method = True
@@ -140,15 +140,54 @@ class POSI80(parametric_method):
                 (posi['level'] == level)):
                 have_POSI_K = True
                 print('found POSI instance: %s' % posi)
-                cls.POSI_K = posi['K']
+                cls.POSI_K = float(posi['K'])
 
         if not have_POSI_K:
             print('simulating POSI constant')
-            cls.POSI_K = POSI_instance(feature_cov, max_model_size, n=10*feature_cov.shape[0])
+            cls.POSI_K = float(POSI_instance(feature_cov, max_model_size, n=10*feature_cov.shape[0]))
 
         numpy2ri.deactivate()
 
 POSI80.register()
+
+class POSI95(POSI90):
+
+    method_name = Unicode("POSI")
+    selectiveR_method = True
+    selection_method = lee_1se
+    model_target = Unicode("selected")
+
+    @classmethod
+    def setup(cls, feature_cov, data_generating_mechanism, max_model_size=6, level=0.95):
+        cls.feature_cov = feature_cov
+        cls.data_generating_mechanism = data_generating_mechanism
+        cls.noise = data_generating_mechanism.noise
+        numpy2ri.activate()
+
+        # see if we've factored this before
+
+        have_POSI_K = False
+        if not os.path.exists('.POSI_data'):
+            os.mkdir('.POSI_data')
+        posi_data = glob.glob('.POSI_data/*npz')
+        for posi_file in posi_data:
+            posi = np.load(posi_file)
+            posi_f = posi['feature_cov']
+            if ((posi_f.shape == feature_cov.shape) and
+                np.allclose(posi_f, feature_cov) and 
+                (posi['max_model_size'] == max_model_size) and 
+                (posi['level'] == level)):
+                have_POSI_K = True
+                print('found POSI instance: %s' % posi)
+                cls.POSI_K = float(posi['K'])
+
+        if not have_POSI_K:
+            print('simulating POSI constant')
+            cls.POSI_K = float(POSI_instance(feature_cov, max_model_size, n=10*feature_cov.shape[0]))
+
+        numpy2ri.deactivate()
+
+POSI95.register()
 
 def POSI_instance(feature_cov, max_model_size, n, level=np.array([0.8,0.9,0.95,0.99])):
 
@@ -169,8 +208,9 @@ def POSI_instance(feature_cov, max_model_size, n, level=np.array([0.8,0.9,0.95,0
     K = rpy.r("posi_K")
 
     for i, l in enumerate(level):
+        print(K[i])
         np.savez('.POSI_data/%s.npz' % (os.path.split(tempfile.mkstemp()[1])[1],),
-                 K=K,
+                 K=K[i],
                  feature_cov=feature_cov,
                  level=l,
                  max_model_size=max_model_size)

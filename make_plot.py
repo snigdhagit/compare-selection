@@ -52,7 +52,7 @@ def plot(df,
         raise ValueError("don't know how to plot '%s'" % param)
     rendered_plot.add_legend()
     rendered_plot.savefig(outbase + '.pdf')
-    rendered_plot.savefig(outbase + '.png')
+    rendered_plot.savefig(outbase + '.png', dpi=200)
 
     return df
 
