@@ -8,6 +8,15 @@ import seaborn as sns
 from utils import summarize
 from statistics import FDR_summary, estimator_summary, interval_summary
 
+palette = {'Randomized LASSO':'k',
+           'Liu':'r',
+           'Lee':'g',
+           'Knockoffs':'b',
+           'POSI':'y',
+           'Data splitting':'tab:orange',
+           'SqrtLASSO':'tab:purple'
+           }
+
 def feature_plot(param, power, color='r', label='foo', ylim=None, horiz=None):
     ax = plt.gca()
     ax.plot(param, power, 'o--', color=color, label=label)
@@ -38,7 +47,7 @@ def plot(df,
 
     df['Method'] = df['method_name']
     # plot with rho on x axis
-    g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False)
+    g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
     
     if feature == 'Full model power':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
