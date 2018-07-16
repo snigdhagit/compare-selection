@@ -50,7 +50,7 @@ def plot(df,
     g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
     
     print(feature)
-    if feature == ['Full model power', 'Preselection power']:
+    if feature == ['Full model power', 'Selection quality']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
     elif feature == 'Full model FDR':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,0.3), horiz=q)
@@ -112,7 +112,7 @@ Try:
 
     df = pd.read_csv(csvfile)
     
-    if opts.feature in ['power', 'fdr', 'preselect_power']:
+    if opts.feature in ['power', 'fdr', 'selection_quality']:
         summary = FDR_summary
     elif opts.feature == 'risk':
         summary = estimator_summary
@@ -131,7 +131,7 @@ Try:
          opts.fixed,
          opts.param,
          {'power':'Full model power', 
-          'preselect_power':'Preselection power',
+          'selection_quality':'Selection quality',
           'fdr': 'Full model FDR',
           'risk': 'Risk',
           'coverage': 'Coverage',
