@@ -65,7 +65,7 @@ def compare(instance,
             if verbose:
                 print('method:', method)
 
-            M, result_df = statistic(method, instance, X.copy(), Y.copy(), beta.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+            M, result_df = statistic(method, instance, X.copy(), Y.copy(), beta.copy(), l_theory.copy(), copy(l_min), copy(l_1se), sigma_reid)
 
             if result_df is not None:
                 result_df['instance_id'] = instance_id

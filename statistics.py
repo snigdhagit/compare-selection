@@ -157,6 +157,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
     true_active = np.nonzero(beta)[0]
 
     if active is not None:
+        preselect = instance.discoveries(active, true_active)
         TD = instance.discoveries(selected, true_active)
         FD = len(selected) - TD
         FDP = FD / max(TD + 1. * FD, 1.)
@@ -174,6 +175,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
                                  nFD,
                                  nFDP,
                                  tic-toc, 
+                                 preselect / (len(true_active)*1.),
                                  len(active)]],
                                columns=['Full model power',
                                         'False discoveries',
@@ -182,9 +184,10 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
                                         'Naive false discoveries',
                                         'Naive full model FDP',
                                         'Time',
+                                        'Preselection power',
                                         'Active'])
     else:
-        return M, pd.DataFrame([[0, 0, 0, 0, 0, 0, tic-toc, 0]],
+        return M, pd.DataFrame([[0, 0, 0, 0, 0, 0, tic-toc, 0, 0]],
                                columns=['Full model power',
                                         'False discoveries',
                                         'Full model FDP',
@@ -192,6 +195,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
                                         'Naive false discoveries',
                                         'Naive full model FDP',
                                         'Time',
+                                        'Preselection power',
                                         'Active'])
 
 def FDR_summary(result):
@@ -207,6 +211,7 @@ def FDR_summary(result):
                            np.mean(result['Naive full model power']), 
                            np.mean(result['Naive false discoveries']), 
                            np.mean(result['Time']),
+                           np.mean(result['Preselection power']),
                            np.mean(result['Active']),
                            result['model_target'].values[0]]],
                          columns=['Replicates', 
@@ -219,6 +224,7 @@ def FDR_summary(result):
                                   'Naive full model power',
                                   'Naive false discoveries',
                                   'Time', 
+                                  'Preselection power',
                                   'Active',
                                   'Model'
                                   ])

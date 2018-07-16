@@ -949,11 +949,9 @@ class randomized_lasso_half_1se(randomized_lasso_1se):
 
 class randomized_lasso_1se_AR(randomized_lasso_1se):
 
-
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-        randomized_lasso_half_1se.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-
+        randomized_lasso_1se.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         n, p = X.shape
 
         ARrho = []
@@ -983,7 +981,75 @@ class randomized_lasso_1se_AR(randomized_lasso_1se):
         return self._method_instance
 randomized_lasso_1se_AR.register()
 
-class randomized_lasso_half_1se_AR(randomized_lasso_half_1se):
+class randomized_lasso_aggressive_AR(randomized_lasso_aggressive):
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        randomized_lasso_aggressive.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        n, p = X.shape
+
+        ARrho = []
+        for s in np.random.sample(100):
+            Xr = X[int(s*n)]
+            ARrho.append(np.corrcoef(Xr[1:], Xr[:-1])[0,1])
+        ARrho = np.mean(ARrho) 
+        print("AR parameter", ARrho)
+
+        mean_diag = np.mean((X ** 2).sum(0))
+        randomizer_scale = np.sqrt(mean_diag) * np.std(Y) * self.randomizer_scale
+
+        ARcov = ARrho**(np.abs(np.subtract.outer(np.arange(p), np.arange(p)))) * randomizer_scale**2 
+        self._randomizer = randomization.gaussian(ARcov)
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = random_lasso_method.gaussian(self.X,
+                                                                 self.Y,
+                                                                 feature_weights = self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(mean_diag) / np.sqrt(n),
+                                                                 randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+            self._method_instance.randomizer = self._randomizer
+        return self._method_instance
+randomized_lasso_aggressive_AR.register()
+
+class randomized_lasso_AR(randomized_lasso):
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        n, p = X.shape
+
+        ARrho = []
+        for s in np.random.sample(100):
+            Xr = X[int(s*n)]
+            ARrho.append(np.corrcoef(Xr[1:], Xr[:-1])[0,1])
+        ARrho = np.mean(ARrho) 
+        print("AR parameter", ARrho)
+
+        mean_diag = np.mean((X ** 2).sum(0))
+        randomizer_scale = np.sqrt(mean_diag) * np.std(Y) * self.randomizer_scale
+
+        ARcov = ARrho**(np.abs(np.subtract.outer(np.arange(p), np.arange(p)))) * randomizer_scale**2 
+        self._randomizer = randomization.gaussian(ARcov)
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = random_lasso_method.gaussian(self.X,
+                                                                 self.Y,
+                                                                 feature_weights = self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(mean_diag) / np.sqrt(n),
+                                                                 randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+            self._method_instance.randomizer = self._randomizer
+        return self._method_instance
+randomized_lasso_AR.register()
+
+class randomized_lasso_half_1se_AR(randomized_lasso_1se_AR):
 
     need_CV = True
     randomizer_scale = Float(0.5)

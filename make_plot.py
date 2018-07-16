@@ -49,11 +49,12 @@ def plot(df,
     # plot with rho on x axis
     g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
     
-    if feature == 'Full model power':
+    print(feature)
+    if feature == ['Full model power', 'Preselection power']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
     elif feature == 'Full model FDR':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,0.3), horiz=q)
-    elif feature in ['Mean length', 'Median length', 'Risk']:
+    elif feature in ['Mean length', 'Median length', 'Risk', 'Mean naive length', 'Median strong length']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0, df[feature].max() + 0.1 * np.std(df[feature])))
     elif feature == 'Coverage':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0.5, 1), horiz=level)
@@ -111,11 +112,11 @@ Try:
 
     df = pd.read_csv(csvfile)
     
-    if opts.feature in ['power', 'fdr']:
+    if opts.feature in ['power', 'fdr', 'preselect_power']:
         summary = FDR_summary
     elif opts.feature == 'risk':
         summary = estimator_summary
-    elif opts.feature in ['coverage', 'mean_length', 'median_length']:
+    elif opts.feature in ['coverage', 'mean_length', 'median_length', 'naive_length', 'median_strong_length']:
         summary = interval_summary
     else:
         raise ValueError("don't know how to summarize '%s'" % opts.feature)
@@ -130,10 +131,13 @@ Try:
          opts.fixed,
          opts.param,
          {'power':'Full model power', 
+          'preselect_power':'Preselection power',
           'fdr': 'Full model FDR',
           'risk': 'Risk',
           'coverage': 'Coverage',
           'mean_length': 'Mean length',
+          'naive_length': 'Mean naive length',
+          'median_strong_length': 'Median strong length',
           'median_length': 'Median length'}[opts.feature],
          opts.outbase,
          methods=opts.methods,
