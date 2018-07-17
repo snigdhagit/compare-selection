@@ -37,8 +37,21 @@ class data_instance(HasTraits):
         selected = np.asarray(selected)
         truth = np.asarray(truth)
         if selected.shape[0] > 0 and truth.shape[0] > 0:
-            delta = np.fabs(np.subtract.outer(np.asarray(selected), np.asarray(truth))).min(0)
-            return (delta <= self.distance_tol).sum()
+
+            # if two or more selected are near one true signal, it will only be counted as one true discovery
+            # here is how many true signals were detected -- for each truth, is there a selected within distance_tol?
+
+            diff = np.fabs(np.subtract.outer(np.asarray(selected), np.asarray(truth)))
+            num_true_discovered = (diff.min(0) <= self.distance_tol).sum()
+
+            # it is possible that two true signals are very close so one selected find two "true" signals
+            # but we should never have more discoveries than -- this should be rare
+
+            num_select_discovered = (diff.min(1) <= self.distance_tol).sum()
+            
+            # this result is less than both the number of selected as well as the number of true
+
+            return min(num_true_discovered, num_selected_discovered)
         else:
             return 0
 
