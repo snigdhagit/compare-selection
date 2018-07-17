@@ -211,7 +211,7 @@ def FDR_summary(result):
                            np.mean(result['Naive full model power']), 
                            np.mean(result['Naive false discoveries']), 
                            np.mean(result['Time']),
-                           np.mean(result['Hypothesis quality']),
+                           np.mean(result['Selection quality']),
                            np.mean(result['Active']),
                            result['model_target'].values[0]]],
                          columns=['Replicates', 
