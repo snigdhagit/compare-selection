@@ -294,7 +294,7 @@ def BH_summary(result):
 
 # marginally threshold p-values at 10% by default
 
-marginal_summary = FDR_summary # reporting statistics are the same as with BHfilter
+marginal_summary = BH_summary # reporting statistics are the same as with BHfilter
 
 def marginal_statistic(method, 
                        instance, 
