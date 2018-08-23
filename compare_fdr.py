@@ -8,8 +8,8 @@ import pandas as pd
 
 from instances import data_instances
 from utils import gaussian_setup, summarize
-from statistics import (FDR_statistic, 
-                        FDR_summary,
+from statistics import (BH_statistic, 
+                        BH_summary,
                         marginal_statistic,
                         marginal_summary)
 from gaussian_methods import methods
@@ -215,7 +215,7 @@ def main(opts):
         csvfiles.append(new_opts.csvfile)
 
         if new_opts.use_BH:
-            statistic, summary = FDR_statistic, FDR_summary
+            statistic, summary = BH_statistic, BH_summary
         else:
             statistic, summary = marginal_statistic, marginal_summary
 

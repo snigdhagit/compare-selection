@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 
 from utils import summarize
-from statistics import FDR_summary, estimator_summary, interval_summary
+from statistics import BH_summary, estimator_summary, interval_summary
 
 palette = {'Randomized LASSO':'k',
            'Liu':'r',
@@ -96,7 +96,8 @@ Try:
                         dest='feature',
                         default='power',
                         help='Variable for y-axis')
-    parser.add_argument('--target_q', help='FDR target', dest='target_q', default=0.2)
+    parser.add_argument('--target_q', help='FDR target', dest='target_q', default=0.2) # if using marginal screening no real
+                                                                                       # q value for here
     parser.add_argument('--target_level', help='Confidence level target', dest='target_level', default=0.95)
     parser.add_argument('--csvfile', help='csvfile.', dest='csvfile')
     parser.add_argument('--csvbase', help='csvfile.', dest='csvbase')
@@ -117,7 +118,7 @@ Try:
     df = pd.read_csv(csvfile)
     
     if opts.feature in ['power', 'fdr', 'selection_quality', 'conditional_power']:
-        summary = FDR_summary
+        summary = BH_summary # same as marginal_summary
     elif opts.feature == 'risk':
         summary = estimator_summary
     elif opts.feature in ['coverage', 'mean_length', 'median_length', 'naive_length', 'median_strong_length']:

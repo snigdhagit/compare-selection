@@ -193,7 +193,7 @@ def estimator_summary(result):
 
     return value
 
-def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+def BH_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
 
     toc = time.time()
     M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
@@ -253,7 +253,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
                                         'Selection Quality',
                                         'Active'])
 
-def FDR_summary(result):
+def BH_summary(result):
 
     nresult = result['Full Model Power'].shape[0]
     value = pd.DataFrame([[nresult,
