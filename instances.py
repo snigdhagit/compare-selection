@@ -47,14 +47,13 @@ class data_instance(HasTraits):
             # it is possible that two true signals are very close so one selected find two "true" signals
             # but we should never have more discoveries than -- this should be rare
 
-            num_select_discovered = (diff.min(1) <= self.distance_tol).sum()
+            num_selected_discovered = (diff.min(1) <= self.distance_tol).sum()
             
             # this result is less than both the number of selected as well as the number of true
 
             return min(num_true_discovered, num_selected_discovered)
         else:
             return 0
-
 
 class equicor_instance(data_instance):
 

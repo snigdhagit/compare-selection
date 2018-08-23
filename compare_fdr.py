@@ -8,7 +8,10 @@ import pandas as pd
 
 from instances import data_instances
 from utils import gaussian_setup, summarize
-from statistics import FDR_statistic, FDR_summary
+from statistics import (FDR_statistic, 
+                        FDR_summary,
+                        marginal_statistic,
+                        marginal_summary)
 from gaussian_methods import methods
 import posi, knockoffs # register these methods
 
@@ -24,7 +27,8 @@ def compare(instance,
             method_setup=True,
             csvfile=None,
             concat=False,
-            q=0.2):
+            level=0.2,
+            use_BH=True):
     
     results = []
     
@@ -33,7 +37,10 @@ def compare(instance,
     for method in methods:
         if method_setup:
             method.setup(instance.feature_cov, instance)
-        method.q = q
+        if use_BH:
+            method.q = level
+        else:
+            method.alpha = level
 
     method_params, class_names, method_names = get_method_params(methods)
 
@@ -207,15 +214,22 @@ def main(opts):
                                                       new_opts.rho))
         csvfiles.append(new_opts.csvfile)
 
+        if new_opts.use_BH:
+            statistic, summary = FDR_statistic, FDR_summary
+        else:
+            statistic, summary = marginal_statistic, marginal_summary
+
         compare(instance,
-                FDR_statistic,
-                FDR_summary,
+                statistic,
+                summary,
                 nsim=new_opts.nsim,
                 methods=_methods,
                 verbose=new_opts.verbose,
                 htmlfile=new_opts.htmlfile,
                 method_setup=method_setup,
-                csvfile=new_opts.csvfile)
+                csvfile=new_opts.csvfile,
+                use_BH=new_opts.use_BH,
+                level=new_opts.level)
 
     # concat all csvfiles
 
@@ -262,8 +276,12 @@ Try:
                         default=0.,
                         dest='rho',
                         help='Value of AR(1), equicor or mixed param.')
-    parser.add_argument('--q', default=0.2, type=float,
-                        help='target for FDR (default 0.2)')
+    parser.add_argument('--level', default=0.2, type=float,
+                        help='target for FDR or type I error if using marginal screening (default 0.2)')
+    parser.add_argument('--use_BH', dest='use_BH', action='store_true',
+                        help='use BH on pvalues as selection rule', default=True)
+    parser.add_argument('--use_marginal', dest='use_BH', action='store_false',
+                        help='use marginal screening of pvalues rather than BH')
     parser.add_argument('--nsim', default=100, type=int,
                         help='How many repetitions?')
     parser.add_argument('--verbose', action='store_true',

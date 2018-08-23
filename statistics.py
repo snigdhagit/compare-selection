@@ -296,18 +296,28 @@ def FDR_summary(result):
 
 marginal_summary = FDR_summary # reporting statistics are the same as with BHfilter
 
-def marginal_pvalue_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid,
-                              level=0.1):
+def marginal_statistic(method, 
+                       instance, 
+                       X, 
+                       Y, 
+                       beta, 
+                       l_theory, 
+                       l_min, 
+                       l_1se, 
+                       sigma_reid):
 
     toc = time.time()
     M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
-    active_set, pvalues = self.generate_pvalues()
-    selected = pvalues < level
+    try:
+        active, pvalues = M.generate_pvalues()
+        selected = pvalues < method.level
+    except AttributeError: # some methods do not have pvalues (e.g. knockoffs for these we will run their select method
+        active, selected = M.select()
 
     try:
         if len(active) > 0:
             naive_pvalues = M.naive_pvalues(active)[1]
-            naive_selected = naive_pvalues < level
+            naive_selected = naive_pvalues < method.level
         else:
             naive_selected = None
     except AttributeError:
