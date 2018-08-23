@@ -104,6 +104,12 @@ def compare(instance,
                     f.write(instance.params.to_html())
                     f.close()
 
+                    # also write a summary CSV
+
+                    f = open(csvfile.replace('.csv', '_summary.csv'), 'w')
+                    f.write(summary_df.to_csv(index_label=False) + '\n')
+                    f.close()
+
         if i > 0 and len(np.unique(results_full['instance_id'])) >= nsim:
             break
 

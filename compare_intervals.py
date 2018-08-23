@@ -108,7 +108,7 @@ def compare(instance,
 
                     # csv summary
 
-                    f = open(csvfile[:-4] + '_summary.csv', 'w')
+                    f = open(csvfile.replace('.csv', '_summary.csv'), 'w')
                     f.write(summary_df.to_csv() + '\n')
                     f.close()
 

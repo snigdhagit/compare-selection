@@ -118,10 +118,10 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
     S = instance.feature_cov
 
     relative_risk = (np.sum((beta - point_estimate) * S.dot(beta - point_estimate)) / 
-                     np.sum(beta * Sigma.dot(beta)))
+                     np.sum(beta * S.dot(beta)))
 
     naive_relative_risk = (np.sum((beta - naive_estimate) * S.dot(beta - naive_estimate)) / 
-                           np.sum(beta * Sigma.dot(beta)))
+                           np.sum(beta * S.dot(beta)))
 
     bias = np.mean(point_estimate - beta)
     naive_bias = np.mean(naive_estimate - beta)

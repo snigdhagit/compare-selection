@@ -93,6 +93,12 @@ def compare(instance,
                     f.write(instance.params.to_html())
                     f.close()
 
+                    # also write a summary CSV
+
+                    f = open(csvfile.replace('.csv', '_summary.csv'), 'w')
+                    f.write(summary_df.to_csv(index_label=False) + '\n')
+                    f.close()
+
 def get_method_params(methods):
 
     # find all columns needed for output

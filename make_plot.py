@@ -46,7 +46,7 @@ def plot(df,
     methods = methods or np.unique(df['class_name'])
     df = df.loc[df['class_name'].isin(methods)]
 
-    df['Conditional power'] = df['Full model power'] / df['Selection quality']
+    df['Conditional Power'] = df['Full Model Power'] / df['Selection Quality']
     df['Method'] = df['method_name']
     if 'lee_CV' in methods:
         df.loc[df['class_name'] == 'lee_CV', 'Method'] = 'Lee CV'
@@ -54,11 +54,11 @@ def plot(df,
     # plot with rho on x axis
     g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
     
-    if feature in ['Full model power', 'Selection quality', 'Conditional power']:
+    if feature in ['Full Model Power', 'Selection Quality', 'Conditional Power']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
-    elif feature == 'Full model FDR':
+    elif feature == 'Full Model FDR':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,0.3), horiz=q)
-    elif feature in ['Mean length', 'Median length', 'Risk', 'Mean naive length', 'Median strong length']:
+    elif feature in ['Mean Length', 'Median Length', 'Risk', 'Mean Naive Length', 'Median Strong Length']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0, df[feature].max() + 0.1 * np.std(df[feature])))
     elif feature == 'Coverage':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0.5, 1), horiz=level)
@@ -134,16 +134,16 @@ Try:
     plot(summary_df,
          opts.fixed,
          opts.param,
-         {'power':'Full model power', 
-          'selection_quality':'Selection quality',
-          'fdr': 'Full model FDR',
+         {'power':'Full Model Power', 
+          'selection_quality':'Selection Quality',
+          'fdr': 'Full Model FDR',
           'risk': 'Risk',
           'coverage': 'Coverage',
-          'mean_length': 'Mean length',
-          'naive_length': 'Mean naive length',
-          'median_strong_length': 'Median strong length',
-          'conditional_power': 'Conditional power',
-          'median_length': 'Median length'}[opts.feature],
+          'mean_length': 'Mean Length',
+          'naive_length': 'Mean Naive Length',
+          'median_strong_length': 'Median Strong Length',
+          'conditional_power': 'Conditional Power',
+          'median_length': 'Median Length'}[opts.feature],
          opts.outbase,
          methods=opts.methods,
          q=opts.target_q,
