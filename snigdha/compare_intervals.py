@@ -160,6 +160,7 @@ def main(opts):
     prev_rho = np.nan
 
     csvfiles = []
+    summaryfiles = []
 
     for rho, snr in product(np.atleast_1d(opts.rho),
                                snr_vals):
@@ -197,6 +198,7 @@ def main(opts):
                        "_snr%0.1f_rho%0.2f.csv" % (new_opts.snr,
                                                       new_opts.rho))
         csvfiles.append(new_opts.csvfile)
+        summaryfiles.append(new_opts.csvfile.replace('.csv', '_summary.csv'))
 
         compare(instance,
                 interval_statistic,
@@ -213,6 +215,9 @@ def main(opts):
     if opts.csvfile is not None:
         all_results = pd.concat([pd.read_csv(f) for f in csvfiles])
         all_results.to_csv(opts.csvfile)
+
+        all_results = pd.concat([pd.read_csv(f) for f in summaryfiles])
+        all_results.to_csv(opts.csvfile.replace('.csv', '_summary.csv'))
 
 if __name__ == "__main__":
 
