@@ -99,35 +99,87 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
         return M, None  # cannot make point estimator
 
     if len(active) > 0:
-        beta_naive = M.naive_estimator(active)[1]
+        naive_estimate = M.naive_estimator(active)[1]
     else:
-        beta_naive = np.ones_like(point_estimate) * np.nan
+        naive_estimate = np.ones_like(point_estimate) * np.nan
+
     tic = time.time()
 
-    risk = np.linalg.norm(beta - point_estimate)**2
-    naive_risk = np.linalg.norm(beta_naive - point_estimate)**2
-    value = pd.DataFrame({'Risk':[risk], 
-                          'Naive risk':[naive_risk]})
+    full_risk = np.linalg.norm(beta - point_estimate)**2
+    naive_full_risk = np.linalg.norm(beta - naive_estimate)**2
+
+    # partial risk -- only active coordinates
+
+    partial_risk = np.linalg.norm(beta[active] - point_estimate[active])**2
+    naive_partial_risk = np.linalg.norm(beta[active] - naive_estimate[active])**2
+
+    # relative risk
+
+    S = instance.feature_cov
+
+    relative_risk = (np.sum((beta - point_estimate) * S.dot(beta - point_estimate)) / 
+                     np.sum(beta * Sigma.dot(beta)))
+
+    naive_relative_risk = (np.sum((beta - naive_estimate) * S.dot(beta - naive_estimate)) / 
+                           np.sum(beta * Sigma.dot(beta)))
+
+    bias = np.mean(point_estimate - beta)
+    naive_bias = np.mean(naive_estimate - beta)
+
+    value = pd.DataFrame({'Full Risk':[full_risk], 
+                          'Naive Full Risk':[naive_full_risk],
+                          'Partial Risk':[partial_risk],
+                          'Naive Partial Risk':[naive_partial_risk],
+                          'Relative Risk':[relative_risk],
+                          'Naive Relative Risk':[naive_relative_risk],
+                          'Bias':[bias],
+                          'Naive Bias':[naive_bias],
+                          })
+
     value['Time'] = tic-toc
     value['Active'] = len(active)
     return M, value
 
 def estimator_summary(result):
 
-    nresult = result['Risk'].shape[0]
+    nresult = result['Full Risk'].shape[0]
     value = pd.DataFrame([[nresult,
-                           np.median(result['Risk']),
-                           np.std(result['Risk']),
-                           np.median(result['Naive risk']),
-                           np.std(result['Naive risk']),
+                           np.median(result['Full Risk']),
+                           np.std(result['Full Risk']),
+                           np.median(result['Naive Full Risk']),
+                           np.std(result['Naive Full Risk']),
+                           np.median(result['Partial Risk']),
+                           np.std(result['Partial Risk']),
+                           np.median(result['Naive Partial Risk']),
+                           np.std(result['Naive Partial Risk']),
+                           np.median(result['Relative Risk']),
+                           np.std(result['Relative Risk']),
+                           np.median(result['Naive Relative Risk']),
+                           np.std(result['Naive Relative Risk']),
+                           np.median(result['Bias']),
+                           np.std(result['Bias']),
+                           np.median(result['Naive Bias']),
+                           np.std(result['Naive Bias']),
                            np.mean(result['Time']),
                            np.mean(result['Active']),
                            result['model_target'].values[0]]],
                          columns=['Replicates',
-                                  'Risk',
-                                  'SD(Risk)',
-                                  'Naive risk',
-                                  'SD(Naive risk)',
+                                  'Median(Full Risk)',
+                                  'SD(Full Risk)',
+                                  'Median(Naive Full Risk)',
+                                  'SD(Naive Full Risk)',
+                                  'Median(Partial Risk)',
+                                  'SD(Partial Risk)',
+                                  'Median(Naive Partial Risk)',
+                                  'SD(Naive Partial Risk)',
+                                  'Median(Relative Risk)',
+                                  'SD(Relative Risk)',
+                                  'Median(Naive Relative Risk)',
+                                  'SD(Naive Relative Risk)',
+                                  'Median(Bias)',
+                                  'SD(Bias)',
+                                  'Median(Naive Bias)',
+                                  'SD(Naive Bias)',
                                   'Time', 
                                   'Active',
                                   'Model'
@@ -142,6 +194,7 @@ def estimator_summary(result):
     return value
 
 def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+
     toc = time.time()
     M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
     selected, active = M.select()
@@ -161,6 +214,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
         TD = instance.discoveries(selected, true_active)
         FD = len(selected) - TD
         FDP = FD / max(TD + 1. * FD, 1.)
+
         # naive
         if naive_selected is not None:
             nTD = instance.discoveries(naive_selected, true_active)
@@ -168,6 +222,7 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
             nFDP = nFD / max(nTD + 1. * nFD, 1.)
         else:
             nTD, nFDP, nFD = np.nan, np.nan, np.nan
+
         return M, pd.DataFrame([[TD / (len(true_active)*1.), 
                                  FD, 
                                  FDP, 
@@ -177,54 +232,54 @@ def FDR_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_re
                                  tic-toc, 
                                  selection_quality / (len(true_active)*1.),
                                  len(active)]],
-                               columns=['Full model power',
-                                        'False discoveries',
-                                        'Full model FDP',
-                                        'Naive full model power',
-                                        'Naive false discoveries',
-                                        'Naive full model FDP',
+                               columns=['Full Model Power',
+                                        'False Discoveries',
+                                        'Full Model FDP',
+                                        'Naive Full Model Power',
+                                        'Naive False Discoveries',
+                                        'Naive Full Model FDP',
                                         'Time',
-                                        'Selection quality',
+                                        'Selection Quality',
                                         'Active'])
     else:
         return M, pd.DataFrame([[0, 0, 0, 0, 0, 0, tic-toc, 0, 0]],
-                               columns=['Full model power',
-                                        'False discoveries',
-                                        'Full model FDP',
-                                        'Naive full model power',
-                                        'Naive false discoveries',
-                                        'Naive full model FDP',
+                               columns=['Full Model Power',
+                                        'False Discoveries',
+                                        'Full Model FDP',
+                                        'Naive Full Model Power',
+                                        'Naive False Discoveries',
+                                        'Naive Full Model FDP',
                                         'Time',
-                                        'Selection quality',
+                                        'Selection Quality',
                                         'Active'])
 
 def FDR_summary(result):
 
-    nresult = result['Full model power'].shape[0]
+    nresult = result['Full Model Power'].shape[0]
     value = pd.DataFrame([[nresult,
-                           np.mean(result['Full model power']), 
-                           np.std(result['Full model power']) / np.sqrt(nresult),
-                           np.mean(result['False discoveries']), 
-                           np.mean(result['Full model FDP']), 
-                           np.std(result['Full model FDP']) / np.sqrt(nresult),
-                           np.mean(result['Naive full model FDP']), 
-                           np.mean(result['Naive full model power']), 
-                           np.mean(result['Naive false discoveries']), 
+                           np.mean(result['Full Model Power']), 
+                           np.std(result['Full Model Power']) / np.sqrt(nresult),
+                           np.mean(result['False Discoveries']), 
+                           np.mean(result['Full Model FDP']), 
+                           np.std(result['Full Model FDP']) / np.sqrt(nresult),
+                           np.mean(result['Naive Full Model FDP']), 
+                           np.mean(result['Naive Full Model Power']), 
+                           np.mean(result['Naive False Discoveries']), 
                            np.mean(result['Time']),
-                           np.mean(result['Selection quality']),
+                           np.mean(result['Selection Quality']),
                            np.mean(result['Active']),
                            result['model_target'].values[0]]],
                          columns=['Replicates', 
-                                  'Full model power', 
-                                  'SD(Full model power)', 
-                                  'False discoveries', 
-                                  'Full model FDR', 
-                                  'SD(Full model FDR)', 
-                                  'Naive full model FDP',
-                                  'Naive full model power',
-                                  'Naive false discoveries',
+                                  'Full Model Power', 
+                                  'SD(Full Model Power)', 
+                                  'False Discoveries', 
+                                  'Full Model FDR', 
+                                  'SD(Full Model FDR)', 
+                                  'Naive Full Model FDP',
+                                  'Naive Full Model Power',
+                                  'Naive False Discoveries',
                                   'Time', 
-                                  'Selection quality',
+                                  'Selection Quality',
                                   'Active',
                                   'Model'
                                   ])
@@ -236,3 +291,72 @@ def FDR_summary(result):
             value[n] = result[n].values[0]
 
     return value
+
+# marginally threshold p-values at 10% by default
+
+marginal_summary = FDR_summary # reporting statistics are the same as with BHfilter
+
+def marginal_pvalue_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid,
+                              level=0.1):
+
+    toc = time.time()
+    M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    active_set, pvalues = self.generate_pvalues()
+    selected = pvalues < level
+
+    try:
+        if len(active) > 0:
+            naive_pvalues = M.naive_pvalues(active)[1]
+            naive_selected = naive_pvalues < level
+        else:
+            naive_selected = None
+    except AttributeError:
+        naive_selected = None
+
+    tic = time.time()
+    true_active = np.nonzero(beta)[0]
+
+    if active is not None:
+        selection_quality = instance.discoveries(active, true_active)
+        TD = instance.discoveries(selected, true_active)
+        FD = len(selected) - TD
+        FDP = FD / max(TD + 1. * FD, 1.)
+
+        # naive
+        if naive_selected is not None:
+            nTD = instance.discoveries(naive_selected, true_active)
+            nFD = len(naive_selected) - nTD
+            nFDP = nFD / max(nTD + 1. * nFD, 1.)
+        else:
+            nTD, nFDP, nFD = np.nan, np.nan, np.nan
+
+        return M, pd.DataFrame([[TD / (len(true_active)*1.), 
+                                 FD, 
+                                 FDP, 
+                                 np.maximum(nTD / (len(true_active)*1.), 1), 
+                                 nFD,
+                                 nFDP,
+                                 tic-toc, 
+                                 selection_quality / (len(true_active)*1.),
+                                 len(active)]],
+                               columns=['Full Model Power',
+                                        'False Discoveries',
+                                        'Full Model FDP',
+                                        'Naive Full Model Power',
+                                        'Naive False Discoveries',
+                                        'Naive Full Model FDP',
+                                        'Time',
+                                        'Selection Quality',
+                                        'Active'])
+    else:
+        return M, pd.DataFrame([[0, 0, 0, 0, 0, 0, tic-toc, 0, 0]],
+                               columns=['Full Model Power',
+                                        'False Discoveries',
+                                        'Full Model FDP',
+                                        'Naive Full Model Power',
+                                        'Naive False Discoveries',
+                                        'Naive Full Model FDP',
+                                        'Time',
+                                        'Selection Quality',
+                                        'Active'])
+
