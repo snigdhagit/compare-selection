@@ -37,7 +37,7 @@ def compare(instance,
 
     for i in range(nsim):
 
-        X, Y, beta = instance.generate()
+        X, Y, Xval, Yval, beta = instance.generate()
 
         # make a hash representing same data
 
@@ -138,10 +138,10 @@ def main(opts):
     if opts.list_instances or opts.list_methods:
         return
 
-    if opts.signal_strength is not None:  # looping over signal strengths
-        signal_vals = np.atleast_1d(opts.signal_strength)
+    if opts.snr is not None:  # looping over snr strengths
+        snr_vals = np.atleast_1d(opts.snr)
     else:
-        signal_vals = [None]
+        snr_vals = [None]
 
     new_opts = copy(opts)
     prev_rho = np.nan
@@ -156,15 +156,15 @@ def main(opts):
     if opts.wide_only: # only allow methods that are ok if p>n
         new_opts.methods = [m for m in new_opts.methods if m.wide_OK]
 
-    for rho, signal in product(np.atleast_1d(opts.rho),
-                               signal_vals):
+    for rho, snr in product(np.atleast_1d(opts.rho),
+                               snr_vals):
 
         # try to save some time on setup of knockoffs
 
         method_setup = rho != prev_rho 
         prev_rho = rho
 
-        new_opts.signal_strength = signal
+        new_opts.snr = snr
         new_opts.rho = rho
 
         try:
@@ -183,12 +183,12 @@ def main(opts):
         _instance = _instance() # default instance to find trait names
         instance = data_instances[new_opts.instance](**dict([(n, getattr(new_opts, n)) for n in _instance.trait_names() if hasattr(new_opts, n)]))
 
-        if signal is not None: # here is where signal_fac can be ignored
-            instance.signal = new_opts.signal_strength
+        if snr is not None: # here is where snr_fac can be ignored
+            instance.snr = new_opts.snr
 
         if opts.csvfile is not None:
             new_opts.csvfile = (os.path.splitext(opts.csvfile)[0] + 
-                       "_signal%0.1f_rho%0.2f.csv" % (new_opts.signal_strength,
+                       "_snr%0.1f_rho%0.2f.csv" % (new_opts.snr,
                                                       new_opts.rho))
         csvfiles.append(new_opts.csvfile)
 
@@ -217,10 +217,10 @@ if __name__ == "__main__":
 Compare different LASSO methods in terms of full model FDR and Power.
 
 Try:
-    python compare_estimators.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv
+    python compare_estimators.py --instance bestsubset_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv
 ''')
     parser.add_argument('--instance',
-                        default='AR_instance',
+                        default='bestsubset_instance',
                         dest='instance', help='Which instance to generate data from -- only one choice. To see choices run --list_instances.')
     parser.add_argument('--list_instances',
                         dest='list_instances', action='store_true')
@@ -236,11 +236,9 @@ Try:
     parser.add_argument('--nsignal', default=20, type=int,
                         dest='s',
                         help='the number of nonzero coefs, s (default 20)')
-    parser.add_argument('--signal', type=float, nargs='+',
-                        dest='signal_strength',
-                        help='signal strength to override instance default (default value: None) -- signals are all of this magnitude, randomly placed with random signs')
-    parser.add_argument('--signal_fac', default=1.2, type=float,
-                        help='Scale applied to theoretical lambda to get signal size. Ignored if --signal is used.')
+    parser.add_argument('--snr', type=float, nargs='+',
+                        dest='snr',
+                        help='snr strength to override instance default (default value: None)')
     parser.add_argument('--rho', nargs='+', type=float,
                         default=0.,
                         dest='rho',
@@ -249,9 +247,9 @@ Try:
                         help='How many repetitions?')
     parser.add_argument('--verbose', action='store_true',
                         dest='verbose')
-    parser.add_argument('--htmlfile', help='HTML file to store results for one (signal, rho). When looping over (signal, rho) this HTML file tracks the current progress.',
+    parser.add_argument('--htmlfile', help='HTML file to store results for one (snr, rho). When looping over (snr, rho) this HTML file tracks the current progress.',
                         dest='htmlfile')
-    parser.add_argument('--csvfile', help='CSV file to store results looped over (signal, rho). Serves as a file base for individual (signal, rho) pairs.',
+    parser.add_argument('--csvfile', help='CSV file to store results looped over (snr, rho). Serves as a file base for individual (snr, rho) pairs.',
                         dest='csvfile')
     parser.add_argument('--all_methods', help='Run all methods.',
                         default=False,
