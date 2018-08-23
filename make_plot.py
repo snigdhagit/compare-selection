@@ -11,6 +11,7 @@ from statistics import FDR_summary, estimator_summary, interval_summary
 palette = {'Randomized LASSO':'k',
            'Liu':'r',
            'Lee':'g',
+           'Lee CV':'tab:brown',
            'Knockoffs':'b',
            'POSI':'y',
            'Data splitting':'tab:orange',
@@ -45,12 +46,15 @@ def plot(df,
     methods = methods or np.unique(df['class_name'])
     df = df.loc[df['class_name'].isin(methods)]
 
+    df['Conditional power'] = df['Full model power'] / df['Selection quality']
     df['Method'] = df['method_name']
+    if 'lee_CV' in methods:
+        df.loc[df['class_name'] == 'lee_CV', 'Method'] = 'Lee CV'
+
     # plot with rho on x axis
     g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
     
-    print(feature)
-    if feature == ['Full model power', 'Selection quality']:
+    if feature in ['Full model power', 'Selection quality', 'Conditional power']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
     elif feature == 'Full model FDR':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,0.3), horiz=q)
@@ -59,7 +63,7 @@ def plot(df,
     elif feature == 'Coverage':
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0.5, 1), horiz=level)
     else:
-        raise ValueError("don't know how to plot '%s'" % param)
+        raise ValueError("don't know how to plot '%s'" % feature)
     rendered_plot.add_legend()
     rendered_plot.savefig(outbase + '.pdf')
     rendered_plot.savefig(outbase + '.png', dpi=200)
@@ -112,7 +116,7 @@ Try:
 
     df = pd.read_csv(csvfile)
     
-    if opts.feature in ['power', 'fdr', 'selection_quality']:
+    if opts.feature in ['power', 'fdr', 'selection_quality', 'conditional_power']:
         summary = FDR_summary
     elif opts.feature == 'risk':
         summary = estimator_summary
@@ -138,6 +142,7 @@ Try:
           'mean_length': 'Mean length',
           'naive_length': 'Mean naive length',
           'median_strong_length': 'Median strong length',
+          'conditional_power': 'Conditional power',
           'median_length': 'Median length'}[opts.feature],
          opts.outbase,
          methods=opts.methods,
