@@ -62,10 +62,13 @@ estimation = pd.read_csv('estimation_summary.csv')
 marginal = pd.read_csv('fdr_marginal_summary.csv')
 BH = pd.read_csv('fdr_BH_summary.csv')
 
-full = pd.merge(marginal, BH, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'], suffixes=(' (marginal)', ' (BH)'))
-full = pd.merge(full, estimation, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'])
-full = pd.merge(full, intervals, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'])
+half1 = pd.merge(marginal, BH, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'], 
+                 suffixes=(' (marginal)', ' (BH)'))
+half2 = pd.merge(estimation, intervals, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'], 
+                 suffixes=(' (estimation)', ' (intervals)'))
+full = pd.merge(half1, half2, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'])
 
+full.to_csv('full_data.csv', index=False)
 
 columns_for_plots = pd.DataFrame({'median_length':full['Median Length'],
                                   'marginal_power':full['Full Model Power (marginal)'],

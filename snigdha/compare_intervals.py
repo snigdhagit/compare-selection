@@ -41,7 +41,7 @@ def compare(instance,
 
     for i in range(nsim):
 
-        X, Y, Xval, Yval, beta = instance.generate()
+        X, Y, beta = instance.generate()
 
         # make a hash representing same data
 

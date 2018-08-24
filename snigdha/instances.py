@@ -97,7 +97,8 @@ class bestsubset_instance(data_instance):
         sigma = np.array(sim.rx2('sigma'))
         self.noise = float(sigma[0])
         self._feature_cov = Sigma
-        return X, y, X_val, y_val, beta
+        self._X_val, self._y_val = X_val, y_val # unused for now...
+        return X, y, beta
 
     @default('nval')
     def _default_nval(self):
