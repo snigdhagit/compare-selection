@@ -25,7 +25,7 @@ base_opts = Namespace(all_methods=False,
                       p=100,
                       rho=[0.35],
                       s=5, 
-                      snr=[0.4, 0.6], 
+                      snr=[0.10, 0.15],
                       use_BH=True, 
                       verbose=True, 
                       wide_only=False)
