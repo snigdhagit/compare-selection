@@ -784,4 +784,494 @@ class data_splitting_CV(data_splitting):
 
 data_splitting_CV.register()
 
+class relaxed_LASSO_theory(parametric_method):
+
+    model_target = Unicode("selected")
+    method_name = Unicode("relaxed LASSO")
+    estimator = Unicode("OLS")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            self._method_instance = lasso.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+        return self._method_instance
+
+    def generate_summary(self, compute_intervals=False):
+
+        if not self._fit:
+            self.method_instance.fit()
+            self._fit = True
+
+        X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
+
+        if len(L.active) > 0:
+            S = L.summary(compute_intervals=compute_intervals, alternative='onesided')
+            return S
+
+    def generate_pvalues(self):
+        return [], []
+
+    def generate_intervals(self):
+        return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            L.fit()
+            self._fit = True
+
+        if len(L.active) > 0:
+            beta_full = np.zeros(p)
+            beta_full[L.active] = L.onestep_estimator
+            return L.active, beta_full
+        else:
+            return [], np.zeros(p)
+
+relaxed_LASSO_theory.register()
+
+
+class relaxed_LASSO_CV(relaxed_LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("CV")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        relaxed_LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
+
+relaxed_LASSO_CV.register()
+
+class relaxed_LASSO_1se(relaxed_LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        relaxed_LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_1se * np.ones(X.shape[1])
+
+relaxed_LASSO_1se.register()
+
+class LASSO_theory(parametric_method):
+    model_target = Unicode("selected")
+    method_name = Unicode("LASSO")
+    estimator = Unicode("OLS")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            self._method_instance = lasso.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+        return self._method_instance
+
+    def generate_summary(self, compute_intervals=False):
+
+        if not self._fit:
+            self.method_instance.fit()
+            self._fit = True
+
+        X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
+
+        if len(L.active) > 0:
+            S = L.summary(compute_intervals=compute_intervals, alternative='onesided')
+            return S
+
+    def generate_pvalues(self):
+        return [], []
+
+    def generate_intervals(self):
+        return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            L.fit()
+            self._fit = True
+
+        if len(L.active) > 0:
+            beta_full = L.soln
+            return L.active, beta_full
+        else:
+            return [], np.zeros(p)
+
+LASSO_theory.register()
+
+class LASSO_CV(LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("CV")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
+
+LASSO_CV.register()
+
+class LASSO_1se(LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_1se * np.ones(X.shape[1])
+
+LASSO_1se.register()
+
+
+class selective_MLE_theory(parametric_method):
+    method_name = Unicode("Selective MLE")
+    model_target = Unicode("selected")
+    lambda_choice = Unicode("theory")
+    randomizer_scale = Float(1)
+    confidence = Float(0.95)
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = random_lasso_method.gaussian(self.X,
+                                                                 self.Y,
+                                                                 feature_weights=self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(
+                                                                     mean_diag) / np.sqrt(n),
+                                                                 randomizer_scale=self.randomizer_scale * np.std(
+                                                                     self.Y) * np.sqrt(n))
+        return self._method_instance
+
+    def generate_summary(self, compute_intervals=False):
+        return [], [], []
+
+    def generate_pvalues(self, compute_intervals=False):
+        return [], []
+
+    def generate_intervals(self):
+        return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+
+        active = signs != 0
+
+        (observed_target,
+         cov_target,
+         cov_target_score,
+         alternatives) = form_targets(self.model_target,
+                                      rand_lasso.loglike,
+                                      rand_lasso._W,
+                                      active)
+
+        if active.sum() > 0:
+
+            (final_estimator,
+             observed_info_mean,
+             Z_scores,
+             pvalues,
+             intervals,
+             ind_unbiased_estimator) = rand_lasso.selective_MLE(observed_target,
+                                                                cov_target,
+                                                                cov_target_score,
+                                                                level=self.confidence)
+            beta_full = np.zeros(X.shape[1])
+            beta_full[active] = final_estimator
+            return active_set, beta_full
+        else:
+            return [], np.zeros(p)
+
+selective_MLE_theory.register()
+
+class selective_MLE_CV(selective_MLE_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("CV")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        selective_MLE_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
+
+selective_MLE_CV.register()
+
+class selective_MLE_1se(selective_MLE_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        selective_MLE_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_1se * np.ones(X.shape[1])
+
+selective_MLE_1se.register()
+
+class selective_MLE_half_theory(selective_MLE_theory):
+
+    randomizer_scale = Float(0.5)
+    pass
+
+class selective_MLE_half_CV(selective_MLE_CV):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+
+class selective_MLE_half_1se(selective_MLE_1se):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+
+for klass in [selective_MLE_half_1se,
+              selective_MLE_half_CV,
+              selective_MLE_half_theory]:
+    klass.register()
+
+class randomized_LASSO_theory(parametric_method):
+    method_name = Unicode("Randomized LASSO")
+    model_target = Unicode("selected")
+    lambda_choice = Unicode("theory")
+    randomizer_scale = Float(1)
+    confidence = Float(0.95)
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = random_lasso_method.gaussian(self.X,
+                                                                 self.Y,
+                                                                 feature_weights=self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(
+                                                                     mean_diag) / np.sqrt(n),
+                                                                 randomizer_scale=self.randomizer_scale * np.std(
+                                                                     self.Y) * np.sqrt(n))
+        return self._method_instance
+
+    def generate_summary(self, compute_intervals=False):
+        return [], [], []
+
+    def generate_pvalues(self, compute_intervals=False):
+        return [], []
+
+    def generate_intervals(self):
+        return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+
+        active = signs != 0
+
+        (observed_target,
+         cov_target,
+         cov_target_score,
+         alternatives) = form_targets(self.model_target,
+                                      rand_lasso.loglike,
+                                      rand_lasso._W,
+                                      active)
+
+        if active.sum() > 0:
+            beta_full = rand_lasso.initial_soln
+            return active_set, beta_full
+        else:
+            return [], np.zeros(p)
+
+randomized_LASSO_theory.register()
+
+class randomized_LASSO_CV(randomized_LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("CV")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        randomized_LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
+
+randomized_LASSO_CV.register()
+
+class randomized_LASSO_1se(randomized_LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        randomized_LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_1se * np.ones(X.shape[1])
+
+randomized_LASSO_1se.register()
+
+class randomized_LASSO_half_theory(randomized_LASSO_theory):
+
+    randomizer_scale = Float(0.5)
+    pass
+
+class randomized_LASSO_half_CV(randomized_LASSO_CV):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+
+class randomized_LASSO_half_1se(randomized_LASSO_1se):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+
+for klass in [randomized_LASSO_half_1se,
+              randomized_LASSO_half_CV,
+              randomized_LASSO_half_theory]:
+    klass.register()
+
+
+class randomized_relaxed_LASSO_theory(parametric_method):
+    method_name = Unicode("Randomized relaxed LASSO")
+    model_target = Unicode("selected")
+    lambda_choice = Unicode("theory")
+    randomizer_scale = Float(1)
+    confidence = Float(0.95)
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = random_lasso_method.gaussian(self.X,
+                                                                 self.Y,
+                                                                 feature_weights=self.lagrange * np.sqrt(n),
+                                                                 ridge_term=np.std(self.Y) * np.sqrt(
+                                                                     mean_diag) / np.sqrt(n),
+                                                                 randomizer_scale=self.randomizer_scale * np.std(
+                                                                     self.Y) * np.sqrt(n))
+        return self._method_instance
+
+    def generate_summary(self, compute_intervals=False):
+        return [], [], []
+
+    def generate_pvalues(self, compute_intervals=False):
+        return [], []
+
+    def generate_intervals(self):
+        return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+
+        active = signs != 0
+
+        (observed_target,
+         cov_target,
+         cov_target_score,
+         alternatives) = form_targets(self.model_target,
+                                      rand_lasso.loglike,
+                                      rand_lasso._W,
+                                      active)
+
+        if active.sum() > 0:
+            beta_full = rand_lasso._beta_full
+            return active_set, beta_full
+        else:
+            return [], np.zeros(p)
+
+randomized_relaxed_LASSO_theory.register()
+
+class randomized_relaxed_LASSO_CV(randomized_relaxed_LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("CV")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        randomized_relaxed_LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
+
+randomized_relaxed_LASSO_CV.register()
+
+class randomized_relaxed_LASSO_1se(randomized_relaxed_LASSO_theory):
+
+    need_CV = True
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+        randomized_relaxed_LASSO_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_1se * np.ones(X.shape[1])
+
+randomized_relaxed_LASSO_1se.register()
+
+class randomized_relaxed_LASSO_half_theory(randomized_relaxed_LASSO_theory):
+
+    randomizer_scale = Float(0.5)
+    pass
+
+class randomized_relaxed_LASSO_half_CV(randomized_relaxed_LASSO_CV):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+
+class randomized_relaxed_LASSO_half_1se(randomized_relaxed_LASSO_1se):
+
+    need_CV = True
+    randomizer_scale = Float(0.5)
+    pass
+
+for klass in [randomized_relaxed_LASSO_half_1se,
+              randomized_relaxed_LASSO_half_CV,
+              randomized_relaxed_LASSO_half_theory]:
+    klass.register()
+
+
 

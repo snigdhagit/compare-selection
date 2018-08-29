@@ -8,25 +8,25 @@ from compare_intervals import main as main_intervals
 from compare_estimators import main as main_estimators
 
 
-base_opts = Namespace(all_methods=False, 
-                      all_methods_noR=False, 
-                      concat=False, 
-                      cor_thresh=0.5, 
-                      csvfile='estimators.csv', 
-                      htmlfile='estimators.html', 
-                      instance='bestsubset_instance', 
-                      level=0.2, 
-                      list_instances=False, 
-                      list_methods=False, 
-                      methods=['lee_1se', 'randomized_lasso_half_1se'], 
-                      n=500, 
-                      nsim=2, 
-                      p=200, 
-                      rho=[0.4], 
-                      s=5, 
-                      snr=[0.4, 0.6], 
-                      use_BH=True, 
-                      verbose=True, 
+base_opts = Namespace(all_methods=False,
+                      all_methods_noR=False,
+                      concat=False,
+                      cor_thresh=0.5,
+                      csvfile='estimators.csv',
+                      htmlfile='estimators.html',
+                      instance='bestsubset_instance',
+                      level=0.2,
+                      list_instances=False,
+                      list_methods=False,
+                      methods=['lee_1se', 'liu_1se','randomized_lasso_half_1se'],
+                      n=500,
+                      nsim=20,
+                      p=100,
+                      rho=[0.35],
+                      s=5,
+                      snr=[0.10],
+                      use_BH=True,
+                      verbose=True,
                       wide_only=False)
 
 # BH results
@@ -62,9 +62,9 @@ estimation = pd.read_csv('estimation_summary.csv')
 marginal = pd.read_csv('fdr_marginal_summary.csv')
 BH = pd.read_csv('fdr_BH_summary.csv')
 
-half1 = pd.merge(marginal, BH, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'], 
+half1 = pd.merge(marginal, BH, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'],
                  suffixes=(' (marginal)', ' (BH)'))
-half2 = pd.merge(estimation, intervals, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'], 
+half2 = pd.merge(estimation, intervals, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'],
                  suffixes=(' (estimation)', ' (intervals)'))
 full = pd.merge(half1, half2, left_on=['snr', 'class_name'], right_on=['snr', 'class_name'])
 

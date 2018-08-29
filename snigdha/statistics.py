@@ -21,7 +21,8 @@ def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sig
         value = pd.DataFrame({'active_variable':active,
                               'lower_confidence':lower,
                               'upper_confidence':upper,
-                              'target':target})
+                              'target':target,
+                              'truth':beta[active]})
         if naive_lower is not None:
             value['naive_lower_confidence'] = naive_lower
             value['naive_upper_confidence'] = naive_upper
@@ -45,21 +46,32 @@ def interval_summary(result):
     def naive_coverage_(result):
         return np.mean(np.asarray(result['naive_lower_confidence'] <= result['target']) *
                        np.asarray(result['naive_upper_confidence'] >= result['target']))
-        
+
+    def conditional_power_(result):
+        indices = np.asarray(result['truth']!=0, np.bool)
+        return 1. - np.mean(((np.asarray(result['lower_confidence']) <= 0.)*
+                             (np.asarray(result['upper_confidence']) >= 0.))[indices])
+
+    def naive_conditional_power_(result):
+        indices = np.asarray(result['truth']!=0, np.bool)
+        return 1. - np.mean(((np.asarray(result['naive_lower_confidence']) <= 0.)*
+                             (np.asarray(result['naive_upper_confidence']) >= 0.))[indices])
+
     instances = result.groupby('instance_id')
-    len_cover = np.array([(len(g.index), coverage_(g)) for _, g in instances])
+    len_cover = np.array([(len(g.index), coverage_(g), conditional_power_(g)) for _, g in instances])
 
     instances = result.groupby('instance_id')
     naive_cover = np.array([(len(g.index), naive_coverage_(g)) for _, g in instances])
     naive_coverage = np.mean(naive_cover, 0)[1]
-    active_vars, mean_coverage = np.mean(len_cover, 0)
-    sd_coverage = np.std(len_cover[:,1])
 
+    active_vars, mean_coverage, mean_conditional_power = np.mean(len_cover, 0)
+    sd_coverage = np.std(len_cover[:,1])
     # XXX we should group by instances before averaging and computing SD
 
     value = pd.DataFrame([[len(np.unique(result['instance_id'])),
                            mean_coverage,
                            sd_coverage,
+                           mean_conditional_power,
                            np.median(length),
                            np.mean(length),
                            np.mean(naive_length),
@@ -71,6 +83,7 @@ def interval_summary(result):
                          columns=['Replicates',
                                   'Coverage',
                                   'SD(Coverage)',
+                                  'Mean Conditional Power',
                                   'Median Length',
                                   'Mean Length',
                                   'Mean Naive Length',
@@ -153,6 +166,7 @@ def estimator_summary(result):
                            np.median(result['Naive Partial Risk']),
                            np.std(result['Naive Partial Risk']),
                            np.median(result['Relative Risk']),
+                           np.mean(result['Relative Risk']),
                            np.std(result['Relative Risk']),
                            np.median(result['Naive Relative Risk']),
                            np.std(result['Naive Relative Risk']),
@@ -173,6 +187,7 @@ def estimator_summary(result):
                                   'Median(Naive Partial Risk)',
                                   'SD(Naive Partial Risk)',
                                   'Median(Relative Risk)',
+                                  'Mean(Relative Risk)',
                                   'SD(Relative Risk)',
                                   'Median(Naive Relative Risk)',
                                   'SD(Naive Relative Risk)',
