@@ -201,7 +201,7 @@ def BH_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_rei
     try:
         if len(active) > 0:
             naive_pvalues = M.naive_pvalues(active)[1]
-            naive_selected = BHfilter(naive_pvalues, q=M.q)
+            naive_selected = [active[j] for j in BHfilter(naive_pvalues, q=M.q)]
         else:
             naive_selected = None
     except AttributeError:
