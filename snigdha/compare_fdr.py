@@ -161,6 +161,11 @@ def main(opts):
     else:
         snr_vals = [None]
 
+    if opts.signal is not None:  # looping over snr strengths
+        signal_vals = np.atleast_1d(opts.signal)
+    else:
+        signal_vals = [None]
+
     new_opts = copy(opts)
     prev_rho = np.nan
 
@@ -175,8 +180,9 @@ def main(opts):
     if opts.wide_only: # only allow methods that are ok if p>n
         new_opts.methods = [m for m in new_opts.methods if m.wide_OK]
 
-    for rho, snr in product(np.atleast_1d(opts.rho),
-                               snr_vals):
+    for rho, snr, signal in product(np.atleast_1d(opts.rho),
+                                    snr_vals,
+                                    signal_vals):
 
         # try to save some time on setup of knockoffs
 
@@ -184,6 +190,7 @@ def main(opts):
         prev_rho = rho
 
         new_opts.snr = snr
+        new_opts.signal = signal
         new_opts.rho = rho
 
         try:
@@ -205,11 +212,18 @@ def main(opts):
 
         if snr is not None: # here is where snr_fac can be ignored
             instance.snr = new_opts.snr
+        if signal is not None:
+            instance.signal = new_opts.signal
 
         if opts.csvfile is not None:
-            new_opts.csvfile = (os.path.splitext(opts.csvfile)[0] + 
-                       "_snr%0.1f_rho%0.2f.csv" % (new_opts.snr,
-                                                      new_opts.rho))
+            if snr is not None:
+                new_opts.csvfile = (os.path.splitext(opts.csvfile)[0] + 
+                           "_snr%0.1f_rho%0.2f.csv" % (new_opts.snr,
+                                                          new_opts.rho))
+            elif signal is not None:
+                new_opts.csvfile = (os.path.splitext(opts.csvfile)[0] + 
+                           "_signal%0.1f_rho%0.2f.csv" % (new_opts.signal,
+                                                          new_opts.rho))
         csvfiles.append(new_opts.csvfile)
         summaryfiles.append(new_opts.csvfile.replace('.csv', '_summary.csv'))
 
@@ -272,6 +286,9 @@ Try:
     parser.add_argument('--snr', type=float, nargs='+',
                         dest='snr',
                         help='snr strength to override instance default (default value: None)')
+    parser.add_argument('--signal', type=float, nargs='+',
+                        dest='signal',
+                        help='signal strength to override instance default (default value: None)')
     parser.add_argument('--rho', nargs='+', type=float,
                         default=0.,
                         dest='rho',
@@ -286,9 +303,9 @@ Try:
                         help='How many repetitions?')
     parser.add_argument('--verbose', action='store_true',
                         dest='verbose')
-    parser.add_argument('--htmlfile', help='HTML file to store results for one (snr, rho). When looping over (snr, rho) this HTML file tracks the current progress.',
+    parser.add_argument('--htmlfile', help='HTML file to store results for one (snr, signal, rho). When looping over (snr, signalm rho) this HTML file tracks the current progress.',
                         dest='htmlfile')
-    parser.add_argument('--csvfile', help='CSV file to store results looped over (snr, rho). Serves as a file base for individual (snr, rho) pairs.',
+    parser.add_argument('--csvfile', help='CSV file to store results looped over (snr, signal, rho). Serves as a file base for individual (snr, signal, rho) tuples.',
                         dest='csvfile')
     parser.add_argument('--all_methods', help='Run all methods.',
                         default=False,

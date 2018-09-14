@@ -65,13 +65,14 @@ class bestsubset_instance(data_instance):
     instance_name = Unicode('bestsubset')
     n = Integer(500)
     nval = Integer(500)
-    beta_type= Integer(1)
-    p = Integer(100)
-    s = Integer(5)
+    beta_type= Integer(2)
+    p = Integer(200)
+    s = Integer(20)
     rho = Float(0.0)
     l_theory = Float()
     feature_cov = Instance(np.ndarray)
     snr = Float(1.)
+    signal = Float(3.)
     noise = Float(1.)
 
     @default('feature_cov')
@@ -136,3 +137,143 @@ class bestsubset_instance(data_instance):
 
 bestsubset_instance.register()
 
+class equicor_instance(data_instance):
+
+    instance_name = Unicode('Exchangeable')
+    n = Integer(500)
+    p = Integer(200)
+    s = Integer(20)
+    rho = Float(0.0)
+    l_theory = Float()
+    feature_cov = Instance(np.ndarray)
+    signal = Float(4.)
+    noise = Float(1.)
+
+    @default('l_theory')
+    def _default_l_theory(self):
+        factor = 3
+
+        nf = 0
+        X = []
+        self.fixed_l_theory = 0
+        while True:
+            X.append(self.generate_X())
+
+            n, p = X[0].shape
+            nf += n
+
+            if nf > p * factor:
+                break
+        X = np.vstack(X)
+        X /= np.sqrt((X**2).sum(0))[None, :]
+
+        fixed_l_theory = np.fabs(X.T.dot(np.random.standard_normal((nf, 500)))).max(1).mean()
+        return fixed_l_theory
+
+    @observe('rho')
+    def _observe_rho(self, change):
+        rho = change['new']
+        cor = rho
+        tol = 0
+        while cor >= self.cor_thresh:
+            cor *= rho
+            tol += 1
+        self.distance_tol = tol
+
+    @default('feature_cov')
+    def _default_feature_cov(self):
+        _feature_cov = np.ones((self.p, self.p)) * self.rho + (1 - self.rho) * np.identity(self.p)
+        return self._feature_cov
+
+    @property
+    def params(self):
+        df = pd.DataFrame([[getattr(self, n) for n in self.trait_names() if n != 'feature_cov']],
+                          columns=[n for n in self.trait_names() if n != 'feature_cov'])
+        return df
+
+    def generate_X(self):
+
+        (n, p, s, rho) = (self.n,
+                          self.p,
+                          self.s,
+                          self.rho)
+
+        X = gaussian_instance(n=n, p=p, equicorrelated=True, rho=rho, s=0)[0]
+        X /= np.sqrt((X**2).sum(0))[None, :] 
+        X *= np.sqrt(n)
+
+        return X
+
+    def generate(self):
+        (n, p, s, rho) = (self.n,
+                          self.p,
+                          self.s,
+                          self.rho)
+
+        X = self.generate_X()
+
+        if not hasattr(self, "_beta"):
+            beta = np.zeros(p)
+            beta[:s] = self.signal / np.sqrt(n) # local alternatives
+            np.random.shuffle(beta)
+            beta = randomize_signs(beta)
+            self._beta = beta * self.noise
+
+        Y = X.dot(self._beta) + self.noise * np.random.standard_normal(n)
+        return X, Y, self._beta
+
+equicor_instance.register()
+
+class mixed_instance(equicor_instance):
+
+    instance_name = Unicode('Mixed')
+    equicor_rho = Float(0.25)
+    AR_weight = Float(0.5)
+
+    def generate_X(self):
+
+        (n, p, s, rho) = (self.n,
+                          self.p,
+                          self.s,
+                          self.rho)
+
+        X_equi = gaussian_instance(n=n, 
+                                   p=p, 
+                                   equicorrelated=True, 
+                                   rho=self.equicor_rho)[0]
+        X_AR = gaussian_instance(n=n, 
+                                 p=p, 
+                                 equicorrelated=False, 
+                                 rho=rho)[0]
+
+        X = np.sqrt(self.AR_weight) * X_AR + np.sqrt(1 - self.AR_weight) * X_equi
+        X /= np.sqrt((X**2).mean(0))[None, :] 
+
+        return X
+
+    @default('feature_cov')
+    def _default_feature_cov(self):
+        _feature_cov = 0.5 * (self.rho**np.fabs(np.subtract.outer(np.arange(self.p), np.arange(self.p))) + 
+                              np.ones((self.p, self.p)) * self.equicor_rho + (1 - self.equicor_rho) * np.identity(self.p))
+        return _feature_cov
+
+mixed_instance.register()
+
+class AR_instance(equicor_instance):
+
+    instance_name = Unicode('AR')
+
+    def generate_X(self):
+
+        n, p, s, rho = self.n, self.p, self.s, self.rho
+        X = gaussian_instance(n=n, p=p, equicorrelated=False, rho=rho)[0]
+
+        X *= np.sqrt(n)
+        return X
+
+    @default('feature_cov')
+    def _default_feature_cov(self):
+        _feature_cov = self.rho**np.fabs(np.subtract.outer(np.arange(self.p), np.arange(self.p)))
+        return _feature_cov
+
+AR_instance.register()

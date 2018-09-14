@@ -1273,5 +1273,114 @@ for klass in [randomized_relaxed_LASSO_half_1se,
               randomized_relaxed_LASSO_half_theory]:
     klass.register()
 
+class randomized_BH(randomized_lasso):
+
+    need_CV = False
+    method_name = Unicode("Randomized BH")
+    model_target = Unicode("selected")
+    lambda_choice = Unicode("theory")
+    randomizer_scale = Float(0.5)
+    confidence = Float(0.95)
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            mean_diag = np.mean((self.X ** 2).sum(0))
+            self._method_instance = stepup.BH(self.X.T.dot(self.Y),
+                                              1. * self.X.T.dot(self.X), # cheating with sigma for now to see how it works
+                                              randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+        return self._method_instance
+
+    def generate_summary(self, compute_intervals=False): 
+
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+
+        active = signs != 0
+
+        # estimates sigma
+        # JM: for transparency it's better not to have this digged down in the code
+        X_active = X[:,active_set]
+        resid = Y - X_active.dot(np.linalg.pinv(X_active).dot(Y))
+        dispersion = np.sum(resid**2) / (n - active.sum())
+
+        # kwargs['dispersion'] = dispersion
+        (observed_target, 
+         cov_target, 
+         cov_target_score, 
+         alternatives) = self.method_instance.multivariate_targets(active,
+                                                                   dispersion=dispersion)
+
+        if active.sum() > 0:
+            (final_estimator, 
+             observed_info_mean, 
+             Z_scores, 
+             pvalues, 
+             intervals, 
+             ind_unbiased_estimator) = self.method_instance.selective_MLE(observed_target, 
+                                                                          cov_target, 
+                                                                          cov_target_score, 
+                                                                          level=self.confidence)
+            return active_set, pvalues, intervals
+        else:
+            return [], [], []
+
+    def point_estimator(self):
+
+        X, Y, lagrange, rand_lasso = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if not self._fit:
+            signs = self.method_instance.fit()
+            self._fit = True
+
+        signs = rand_lasso.fit()
+        active_set = np.nonzero(signs)[0]
+
+        active = signs != 0
+
+        # estimates sigma
+        # JM: for transparency it's better not to have this digged down in the code
+        X_active = X[:,active_set]
+        resid = Y - X_active.dot(np.linalg.pinv(X_active).dot(Y))
+        dispersion = np.sum(resid**2) / (n - active.sum())
+
+        # kwargs['dispersion'] = dispersion
+        (observed_target, 
+         cov_target, 
+         cov_target_score, 
+         alternatives) = self.method_instance.multivariate_targets(active,
+                                                                   dispersion=dispersion)
+
+        if active.sum() > 0:
+            (final_estimator, 
+             observed_info_mean, 
+             Z_scores, 
+             pvalues, 
+             intervals, 
+             ind_unbiased_estimator) = self.method_instance.selective_MLE(observed_target, 
+                                                                          cov_target, 
+                                                                          cov_target_score, 
+                                                                          level=self.confidence)
+            beta_full = np.zeros(X.shape[1])
+            beta_full[active] = final_estimator
+            return active_set, beta_full
+        else:
+            return [], np.zeros(p)
+
+randomized_BH.register()
 
 
