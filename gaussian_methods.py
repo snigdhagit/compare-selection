@@ -208,7 +208,7 @@ class liu_theory(parametric_method):
         parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         n, p = X.shape
         if n < p:
-            self.method_name = 'ROSI'
+            raise ValueError('Liu does not work when n<p, use ROSI instead')
         self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
 
     @property
@@ -314,7 +314,7 @@ class liu_modelQ_semi_aggressive(liu_aggressive):
         return self._method_instance
 liu_modelQ_semi_aggressive.register()
 
-class liu_sparseinv_aggressive(liu_aggressive):
+class ROSI_aggressive(liu_aggressive):
 
     method_name = Unicode("ROSI")
 
@@ -329,7 +329,7 @@ class liu_sparseinv_aggressive(liu_aggressive):
             self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
             self._method_instance.sparse_inverse = True
         return self._method_instance
-liu_sparseinv_aggressive.register()
+ROSI_aggressive.register()
 
 class liu_aggressive_reid(liu_aggressive):
 
@@ -361,7 +361,7 @@ class liu_1se(liu_theory):
         self.lagrange = l_1se * np.ones(X.shape[1])
 liu_1se.register()
 
-class liu_sparseinv_1se(liu_1se):
+class ROSI_1se(liu_1se):
 
     method_name = Unicode("ROSI")
 
@@ -376,26 +376,9 @@ class liu_sparseinv_1se(liu_1se):
             self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
             self._method_instance.sparse_inverse = True
         return self._method_instance
-liu_sparseinv_1se.register()
+ROSI_1se.register()
 
-class liu_sparseinv_theory(liu_theory):
-
-    method_name = Unicode("ROSI")
-
-    """
-    Force the use of the debiasing matrix.
-    """
-
-    @property
-    def method_instance(self):
-        if not hasattr(self, "_method_instance"):
-            n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = True
-        return self._method_instance
-liu_sparseinv_theory.register()
-
-class liu_sparseinv_CV(liu_CV):
+class ROSI_theory(liu_theory):
 
     method_name = Unicode("ROSI")
 
@@ -410,9 +393,26 @@ class liu_sparseinv_CV(liu_CV):
             self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
             self._method_instance.sparse_inverse = True
         return self._method_instance
-liu_sparseinv_CV.register()
+ROSI_theory.register()
 
-class liu_sparseinv_1se_known(liu_1se):
+class ROSI_CV(liu_CV):
+
+    method_name = Unicode("ROSI")
+
+    """
+    Force the use of the debiasing matrix.
+    """
+
+    @property
+    def method_instance(self):
+        if not hasattr(self, "_method_instance"):
+            n, p = self.X.shape
+            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance.sparse_inverse = True
+        return self._method_instance
+ROSI_CV.register()
+
+class ROSI_1se_known(liu_1se):
 
     method_name = Unicode("ROSI - known")
     dispersion = Float(1.)
@@ -433,73 +433,7 @@ class liu_sparseinv_1se_known(liu_1se):
             self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
             self._method_instance.sparse_inverse = True
         return self._method_instance
-liu_sparseinv_1se_known.register()
-
-class liu_R_theory(liu_theory):
-
-    selectiveR_method = True
-    method_name = Unicode("Liu (R code)")
-
-    def generate_pvalues(self):
-        try:
-            numpy2ri.activate()
-            rpy.r.assign('X', self.X)
-            rpy.r.assign('y', self.Y)
-            rpy.r.assign('sigma_reid', self.sigma_reid)
-            rpy.r('y = as.numeric(y)')
-
-            rpy.r.assign('lam', self.lagrange[0])
-            rpy.r('''
-        p = ncol(X);
-        n = nrow(X);
-
-        sigma_est = 1.
-        if (p >= n) { 
-            sigma_est = sigma_reid
-        } else {
-            sigma_est = sigma(lm(y ~ X - 1))
-        }
-
-        penalty_factor = rep(1, p);
-        lam = lam * sqrt(n);  # lambdas are passed a sqrt(n) free from python code
-        soln = selectiveInference:::solve_problem_glmnet(X, 
-                                                         y, 
-                                                         lam/n, 
-                                                         penalty_factor=penalty_factor, 
-                                                         loss="ls")
-        PVS = ROSI(X, 
-                   y, 
-                   soln,
-                   lambda=lam, 
-                   penalty_factor=penalty_factor, 
-                   dispersion=sigma_est^2, 
-                   family='gaussian',
-                   solver="QP",
-                   construct_ci=FALSE)
-        active_vars=PVS$active_vars - 1 # for 0-based
-        pvalues = PVS$pvalues
-        ''')
-
-            pvalues = np.asarray(rpy.r('pvalues'))
-            active_set = np.asarray(rpy.r('active_vars'))
-            numpy2ri.deactivate()
-            if len(active_set) > 0:
-                return active_set, pvalues
-            else:
-                return [], []
-        except:
-            return [np.nan], [np.nan] # some R failure occurred 
-liu_R_theory.register()
-
-class liu_R_aggressive(liu_R_theory):
-
-    lambda_choice = Unicode('aggressive')
-
-    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
-
-        liu_R_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
-liu_R_aggressive.register()
+ROSI_1se_known.register()
 
 class lee_full_R_theory(liu_theory):
 
@@ -725,7 +659,6 @@ class randomized_lasso(parametric_method):
     model_target = Unicode("selected")
     lambda_choice = Unicode("theory")
     randomizer_scale = Float(1)
-    confidence = Float(0.95)
     use_MLE = Bool(False)
     ndraw = 10000
     burnin = 2000
