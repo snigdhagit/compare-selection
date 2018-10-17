@@ -14,6 +14,7 @@ palette = {'Randomized LASSO':'k',
            'Lee CV':'tab:brown',
            'Knockoffs':'b',
            'POSI':'y',
+           'ROSI':'tab:pink',
            'Data splitting':'tab:orange',
            'SqrtLASSO':'tab:purple'
            }
@@ -46,7 +47,8 @@ def plot(df,
     methods = methods or np.unique(df['class_name'])
     df = df.loc[df['class_name'].isin(methods)]
 
-    df['Conditional Power'] = df['Full Model Power'] / df['Selection Quality']
+    if 'Full Model Power' in df.columns:
+        df['Conditional Power'] = df['Full Model Power'] / df['Selection Quality']
     df['Method'] = df['method_name']
     if 'lee_CV' in methods:
         df.loc[df['class_name'] == 'lee_CV', 'Method'] = 'Lee CV'

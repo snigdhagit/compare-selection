@@ -13,7 +13,7 @@ from traitlets import (HasTraits,
 import numpy as np
 import regreg.api as rr
 
-from selection.algorithms.lasso import lasso, lasso_full, lasso_full_modelQ
+from selection.algorithms.lasso import lasso, ROSI, ROSI_modelQ
 from selection.algorithms.sqrt_lasso import choose_lambda
 from selection.truncated.gaussian import truncated_gaussian_old as TG
 from selection.randomized.lasso import lasso as random_lasso_method, form_targets
@@ -215,7 +215,8 @@ class liu_theory(parametric_method):
     def method_instance(self):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance = ROSI.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance.sparse_inverse = False
         return self._method_instance
 
     def generate_summary(self, compute_intervals=False): 
@@ -270,7 +271,7 @@ class liu_aggressive(liu_theory):
 
 liu_aggressive.register()
 
-class liu_modelQ_pop_aggressive(liu_aggressive):
+class ROSI_modelQ_pop_aggressive(liu_aggressive):
 
     method_name = Unicode("Liu (ModelQ population)")
 
@@ -278,11 +279,11 @@ class liu_modelQ_pop_aggressive(liu_aggressive):
     def method_instance(self):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
-            self._method_instance = lasso_full_modelQ(self.feature_cov * n, self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance = ROSI_modelQ(self.feature_cov * n, self.X, self.Y, self.lagrange * np.sqrt(n))
         return self._method_instance
-liu_modelQ_pop_aggressive.register()
+ROSI_modelQ_pop_aggressive.register()
 
-class liu_modelQ_semi_aggressive(liu_aggressive):
+class ROSI_modelQ_semi_aggressive(liu_aggressive):
 
     method_name = Unicode("Liu (ModelQ semi-supervised)")
 
@@ -310,12 +311,23 @@ class liu_modelQ_semi_aggressive(liu_aggressive):
             Q += self.X.T.dot(self.X)
             Q /= (10 * batch_size + self.X.shape[0])
             n, p = self.X.shape
-            self._method_instance = lasso_full_modelQ(Q * self.X.shape[0], self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance = ROSI_modelQ(Q * self.X.shape[0], self.X, self.Y, self.lagrange * np.sqrt(n))
         return self._method_instance
-liu_modelQ_semi_aggressive.register()
+ROSI_modelQ_semi_aggressive.register()
 
-class ROSI_aggressive(liu_aggressive):
+class ROSI_theory(parametric_method):
 
+    sigma_estimator = Unicode('relaxed')
+    method_name = Unicode("ROSI")
+    lambda_choice = Unicode("theory")
+    model_target = Unicode("full")
+    dispersion = Float(0.)
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        n, p = X.shape
+        self.lagrange = l_theory * np.ones(X.shape[1]) * self.noise
     method_name = Unicode("ROSI")
 
     """
@@ -326,9 +338,63 @@ class ROSI_aggressive(liu_aggressive):
     def method_instance(self):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
+            self._method_instance = ROSI.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
             self._method_instance.sparse_inverse = True
         return self._method_instance
+
+    def generate_summary(self, compute_intervals=False): 
+
+        if not self._fit:
+            self.method_instance.fit()
+            self._fit = True
+
+        X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
+        n, p = X.shape
+
+        if len(L.active) > 0:
+            if self.sigma_estimator == 'reid' and n < p:
+                dispersion = self.sigma_reid**2
+            elif self.dispersion != 0:
+                dispersion = self.dispersion
+            else:
+                dispersion = None
+            S = L.summary(compute_intervals=compute_intervals, 
+                          dispersion=dispersion, 
+                          level=self.confidence)
+            return S
+
+    def generate_pvalues(self):
+        S = self.generate_summary(compute_intervals=False)
+        if S is not None:
+            active_set = np.array(S['variable'])
+            pvalues = np.asarray(S['pval'])
+            return active_set, pvalues
+        else:
+            return [], []
+
+    def generate_intervals(self): 
+        S = self.generate_summary(compute_intervals=True)
+        if S is not None:
+            active_set = np.array(S['variable'])
+            lower, upper = (np.asarray(S['lower_confidence']), 
+                            np.asarray(S['upper_confidence']))
+            return active_set, lower, upper
+        else:
+            return [], [], []
+ROSI_theory.register()
+
+class ROSI_aggressive(ROSI_theory):
+
+    method_name = Unicode("ROSI")
+
+    """
+    Force the use of the debiasing matrix.
+    """
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        ROSI_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 ROSI_aggressive.register()
 
 class liu_aggressive_reid(liu_aggressive):
@@ -361,58 +427,40 @@ class liu_1se(liu_theory):
         self.lagrange = l_1se * np.ones(X.shape[1])
 liu_1se.register()
 
-class ROSI_1se(liu_1se):
+class ROSI_1se(ROSI_theory):
 
     method_name = Unicode("ROSI")
+    need_CV = True
 
     """
     Force the use of the debiasing matrix.
     """
 
-    @property
-    def method_instance(self):
-        if not hasattr(self, "_method_instance"):
-            n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = True
-        return self._method_instance
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        ROSI_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_1se * np.ones(X.shape[1])
 ROSI_1se.register()
 
-class ROSI_theory(liu_theory):
+class ROSI_CV(ROSI_theory):
 
     method_name = Unicode("ROSI")
-
+    need_CV = True
     """
     Force the use of the debiasing matrix.
     """
 
-    @property
-    def method_instance(self):
-        if not hasattr(self, "_method_instance"):
-            n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = True
-        return self._method_instance
-ROSI_theory.register()
+    lambda_choice = Unicode("1se")
 
-class ROSI_CV(liu_CV):
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-    method_name = Unicode("ROSI")
-
-    """
-    Force the use of the debiasing matrix.
-    """
-
-    @property
-    def method_instance(self):
-        if not hasattr(self, "_method_instance"):
-            n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = True
-        return self._method_instance
+        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
 ROSI_CV.register()
 
-class ROSI_1se_known(liu_1se):
+class ROSI_1se_known(ROSI_1se):
 
     method_name = Unicode("ROSI - known")
     dispersion = Float(1.)
@@ -422,17 +470,8 @@ class ROSI_1se_known(liu_1se):
     """
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
-        liu_1se.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        ROSI_1se.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.dispersion = self.__class__.noise**2
-
-    @property
-    def method_instance(self):
-
-        if not hasattr(self, "_method_instance"):
-            n, p = self.X.shape
-            self._method_instance = lasso_full.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = True
-        return self._method_instance
 ROSI_1se_known.register()
 
 class lee_full_R_theory(liu_theory):
@@ -1288,6 +1327,7 @@ data_splitting.register()
 class data_splitting_1se(data_splitting):
 
     lambda_choice = Unicode('1se')
+    need_CV = True
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
