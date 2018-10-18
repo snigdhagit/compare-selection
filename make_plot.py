@@ -15,6 +15,7 @@ palette = {'Randomized LASSO':'k',
            'Knockoffs':'b',
            'POSI':'y',
            'ROSI':'tab:pink',
+           'ROSI theory':'tab:gray',
            'Data splitting':'tab:orange',
            'SqrtLASSO':'tab:purple'
            }
@@ -52,6 +53,8 @@ def plot(df,
     df['Method'] = df['method_name']
     if 'lee_CV' in methods:
         df.loc[df['class_name'] == 'lee_CV', 'Method'] = 'Lee CV'
+    if 'ROSI_theory' in methods:
+        df.loc[df['class_name'] == 'ROSI_theory', 'Method'] = 'ROSI theory'
 
     # plot with rho on x axis
     g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
