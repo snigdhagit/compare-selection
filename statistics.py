@@ -1,3 +1,5 @@
+from __future__ import division
+
 import numpy as np, pandas as pd, time
 from utils import BHfilter
 
@@ -223,14 +225,15 @@ def BH_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_rei
         else:
             nTD, nFDP, nFD = np.nan, np.nan, np.nan
 
-        return M, pd.DataFrame([[TD / (len(true_active)*1.), 
+        ntrue_active = max(len(true_active), 1) 
+        return M, pd.DataFrame([[TD / ntrue_active, 
                                  FD, 
                                  FDP, 
-                                 np.maximum(nTD / (len(true_active)*1.), 1), 
+                                 np.maximum(nTD / ntrue_active, 1), 
                                  nFD,
                                  nFDP,
                                  tic-toc, 
-                                 selection_quality / (len(true_active)*1.),
+                                 selection_quality / ntrue_active,
                                  len(active)]],
                                columns=['Full Model Power',
                                         'False Discoveries',
@@ -340,14 +343,15 @@ def marginal_statistic(method,
         else:
             nTD, nFDP, nFD = np.nan, np.nan, np.nan
 
-        return M, pd.DataFrame([[TD / (len(true_active)*1.), 
+        ntrue_active = max(len(true_active), 1) 
+        return M, pd.DataFrame([[TD / ntrue_active,
                                  FD, 
                                  FDP, 
-                                 np.maximum(nTD / (len(true_active)*1.), 1), 
+                                 np.maximum(nTD / ntrue_active, 1), 
                                  nFD,
                                  nFDP,
                                  tic-toc, 
-                                 selection_quality / (len(true_active)*1.),
+                                 selection_quality / ntrue_active,
                                  len(active)]],
                                columns=['Full Model Power',
                                         'False Discoveries',

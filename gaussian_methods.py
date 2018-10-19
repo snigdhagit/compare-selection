@@ -215,8 +215,7 @@ class liu_theory(parametric_method):
     def method_instance(self):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
-            self._method_instance = ROSI.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = False
+            self._method_instance = ROSI.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n), approximate_inverse=None)
         return self._method_instance
 
     def generate_summary(self, compute_intervals=False): 
@@ -338,8 +337,7 @@ class ROSI_theory(parametric_method):
     def method_instance(self):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
-            self._method_instance = ROSI.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n))
-            self._method_instance.sparse_inverse = True
+            self._method_instance = ROSI.gaussian(self.X, self.Y, self.lagrange * np.sqrt(n), approximate_inverse='BN')
         return self._method_instance
 
     def generate_summary(self, compute_intervals=False): 

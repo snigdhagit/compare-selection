@@ -111,6 +111,8 @@ def compare(instance,
                     f = open(csvfile.replace('.csv', '_summary.csv'), 'w')
                     f.write(summary_df.to_csv() + '\n')
                     f.close()
+            elif len(results) == 0:
+                results_full = results_existing
 
         if i > 0 and len(np.unique(results_full['instance_id'])) >= nsim:
             break

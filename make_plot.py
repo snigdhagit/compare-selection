@@ -14,8 +14,10 @@ palette = {'Randomized LASSO':'k',
            'Lee CV':'tab:brown',
            'Knockoffs':'b',
            'POSI':'y',
-           'ROSI':'tab:pink',
+           'ROSI 1se':'tab:pink',
            'ROSI theory':'tab:gray',
+           'ROSI CV':'tab:cyan',
+           'ROSI aggressive':'tab:olive',
            'Data splitting':'tab:orange',
            'SqrtLASSO':'tab:purple'
            }
@@ -26,11 +28,14 @@ def feature_plot(param, power, color='r', label='foo', ylim=None, horiz=None):
     ax.set_xticks(sorted(np.unique(param)))
     if ylim is not None:
         old_ylim = ax.get_ylim()
-        if ylim[1] is None:
-            ylim = (ylim[0], old_ylim[1])
-        if ylim[0] is None:
-            ylim = (old_ylim[0], ylim[1])
-        ax.set_ylim(ylim)
+        if ylim[1] is not None: # upper limit is set
+            new_ylim = (old_ylim[0], max(old_ylim[1], ylim[1]))
+        if ylim[0] is not None: # lower limit is set
+            new_ylim = (min(old_ylim[0], ylim[0]), new_ylim[1])
+        print(new_ylim, 'new ylim')
+        print(old_ylim, 'old ylim')
+
+        ax.set_ylim(new_ylim)
     if horiz is not None:
         ax.plot(ax.get_xticks(), horiz * np.ones(len(ax.get_xticks())), 'k--')
 
@@ -55,18 +60,24 @@ def plot(df,
         df.loc[df['class_name'] == 'lee_CV', 'Method'] = 'Lee CV'
     if 'ROSI_theory' in methods:
         df.loc[df['class_name'] == 'ROSI_theory', 'Method'] = 'ROSI theory'
+    if 'ROSI_aggressive' in methods:
+        df.loc[df['class_name'] == 'ROSI_aggressive', 'Method'] = 'ROSI aggressive'
+    if 'ROSI_CV' in methods:
+        df.loc[df['class_name'] == 'ROSI_CV', 'Method'] = 'ROSI CV'
+    if 'ROSI_1se' in methods:
+        df.loc[df['class_name'] == 'ROSI_1se', 'Method'] = 'ROSI 1se'
 
     # plot with rho on x axis
     g_plot = sns.FacetGrid(df, col=fixed, hue='Method', sharex=True, sharey=True, col_wrap=2, size=5, legend_out=False, palette=palette)
     
     if feature in ['Full Model Power', 'Selection Quality', 'Conditional Power']:
-        rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,1))
+        rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0, 1))
     elif feature == 'Full Model FDR':
-        rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0,0.3), horiz=q)
+        rendered_plot = g_plot.map(feature_plot, param, feature, horiz=q)
     elif feature in ['Mean Length', 'Median Length', 'Risk', 'Mean Naive Length', 'Median Strong Length']:
         rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0, df[feature].max() + 0.1 * np.std(df[feature])))
     elif feature == 'Coverage':
-        rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0.5, 1), horiz=level)
+        rendered_plot = g_plot.map(feature_plot, param, feature, ylim=(0, 1))
     else:
         raise ValueError("don't know how to plot '%s'" % feature)
     rendered_plot.add_legend()
