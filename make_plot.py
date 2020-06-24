@@ -11,7 +11,7 @@ from statistics import BH_summary, estimator_summary, interval_summary
 palette = {'Randomized LASSO':'k',
            'Liu':'r',
            'Lee':'g',
-           'Lee CV':'tab:brown',
+           'Randomized BH':'tab:brown',
            'Knockoffs':'b',
            'POSI':'y',
            'Data splitting':'tab:orange',
@@ -20,7 +20,9 @@ palette = {'Randomized LASSO':'k',
 
 def feature_plot(param, power, color='r', label='foo', ylim=None, horiz=None):
     ax = plt.gca()
-    ax.plot(param, power, 'o--', color=color, label=label)
+    order = np.argsort(param)
+
+    ax.plot(param[order], power[order], 'o--', color=color, label=label)
     ax.set_xticks(sorted(np.unique(param)))
     if ylim is not None:
         old_ylim = ax.get_ylim()
@@ -46,7 +48,8 @@ def plot(df,
     methods = methods or np.unique(df['class_name'])
     df = df.loc[df['class_name'].isin(methods)]
 
-    df['Conditional Power'] = df['Full Model Power'] / df['Selection Quality']
+    if 'Full Model Power' in df.columns:
+        df['Conditional Power'] = df['Full Model Power'] / df['Selection Quality']
     df['Method'] = df['method_name']
     if 'lee_CV' in methods:
         df.loc[df['class_name'] == 'lee_CV', 'Method'] = 'Lee CV'
@@ -98,7 +101,7 @@ Try:
                         help='Variable for y-axis')
     parser.add_argument('--target_q', help='FDR target', dest='target_q', default=0.2) # if using marginal screening no real
                                                                                        # q value for here
-    parser.add_argument('--target_level', help='Confidence level target', dest='target_level', default=0.95)
+    parser.add_argument('--target_level', help='Confidence level target', dest='target_level', default=0.9)
     parser.add_argument('--csvfile', help='csvfile.', dest='csvfile')
     parser.add_argument('--csvbase', help='csvfile.', dest='csvbase')
     parser.add_argument('--outbase', help='Base of name of pdf file where results are plotted.')
