@@ -76,7 +76,7 @@ def gaussian_setup(X, Y, run_CV=True):
 
 def BHfilter(pval, q=0.2):
     numpy2ri.activate()
-    rpy.r.assign('pval', pval)
+    rpy.r.assign('pval', np.asarray(pval))
     rpy.r.assign('q', q)
     rpy.r('Pval = p.adjust(pval, method="BH")')
     rpy.r('S = which((Pval < q)) - 1')

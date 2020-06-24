@@ -8,7 +8,7 @@ def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sig
     toc = time.time()
     M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
     try:
-        active, lower, upper = M.generate_intervals()
+        active, lower, upper, pvalues = M.generate_intervals()
     except AttributeError:
         return M, None 
 
@@ -28,6 +28,7 @@ def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sig
             value['naive_lower_confidence'] = naive_lower
             value['naive_upper_confidence'] = naive_upper
         value['Time'] = tic-toc
+        value['pvalues'] = pvalues
         return M, value
     else:
         return M, None
@@ -103,7 +104,7 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
     if len(active) > 0:
         naive_estimate = M.naive_estimator(active)[1]
     else:
-        naive_estimate = np.ones_like(point_estimate) * np.nan
+        naive_estimate = np.zeros_like(point_estimate)
 
     tic = time.time()
 
@@ -140,6 +141,7 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
 
     value['Time'] = tic-toc
     value['Active'] = len(active)
+
     return M, value
 
 def estimator_summary(result):

@@ -223,7 +223,7 @@ if __name__ == "__main__":
 Compare different LASSO methods in terms of full model FDR and Power.
 
 Try:
-    python compare_estimators.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv
+    python compare_estimators.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv --signal 2
 ''')
     parser.add_argument('--instance',
                         default='AR_instance',
