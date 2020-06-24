@@ -69,14 +69,14 @@ def gaussian_setup(X, Y, run_CV=True):
         L1 = rpy.r('L1')
         sigma_reid = rpy.r('sigma_reid')[0]
         numpy2ri.deactivate()
-        return L * np.sqrt(X.shape[0]), L1 * np.sqrt(X.shape[0]), l_theory, sigma_reid
+        return L * np.sqrt(X.shape[0]) * 1.0001, L1 * np.sqrt(X.shape[0]) * 1.0001, l_theory, sigma_reid
     else:
         return None, None, l_theory, None
 
 
 def BHfilter(pval, q=0.2):
     numpy2ri.activate()
-    rpy.r.assign('pval', pval)
+    rpy.r.assign('pval', np.asarray(pval))
     rpy.r.assign('q', q)
     rpy.r('Pval = p.adjust(pval, method="BH")')
     rpy.r('S = which((Pval < q)) - 1')

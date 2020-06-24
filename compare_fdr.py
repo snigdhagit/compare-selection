@@ -70,7 +70,15 @@ def compare(instance,
             if verbose:
                 print('method:', method)
 
-            M, result_df = statistic(method, instance, X.copy(), Y.copy(), beta.copy(), l_theory.copy(), copy(l_min), copy(l_1se), sigma_reid)
+            M, result_df = statistic(method, 
+                                     instance, 
+                                     X.copy(), 
+                                     Y.copy(), 
+                                     beta.copy(), 
+                                     l_theory.copy(), 
+                                     copy(l_min), 
+                                     copy(l_1se), 
+                                     sigma_reid)
 
             if result_df is not None:
                 result_df['instance_id'] = instance_id
@@ -115,6 +123,12 @@ def compare(instance,
 
                     f = open(csvfile.replace('.csv', '_summary.csv'), 'w')
                     f.write(summary_df.to_csv(index_label=False) + '\n')
+                    f.close()
+
+                    # also write a summary html
+
+                    f = open(csvfile.replace('.csv', '_summary.html'), 'w')
+                    f.write(summary_df.to_html() + '\n')
                     f.close()
 
         if i > 0 and len(np.unique(results_full['instance_id'])) >= nsim:
@@ -246,7 +260,7 @@ if __name__ == "__main__":
 Compare different LASSO methods in terms of full model FDR and Power.
 
 Try:
-    python compare_fdr.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv
+    python compare_fdr.py --instance AR_instance --rho 0.3 --nsample 100 --nfeature 50 --nsignal 10 --methods lee_theory liu_theory --htmlfile indep.html --csvfile indep.csv --signal 2.0
 ''')
     parser.add_argument('--instance',
                         default='AR_instance',

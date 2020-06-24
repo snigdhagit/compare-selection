@@ -10,7 +10,7 @@ from traitlets import (HasTraits,
                        default, 
                        observe)
 
-from selection.tests.instance import gaussian_instance
+from selectinf.tests.instance import gaussian_instance
 
 def randomize_signs(beta):
     return beta * (2 * np.random.binomial(1, 0.5, size=beta.shape) - 1)
