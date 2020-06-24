@@ -319,7 +319,7 @@ class ROSI_theory(parametric_method):
     sigma_estimator = Unicode('relaxed')
     method_name = Unicode("ROSI")
     lambda_choice = Unicode("theory")
-    model_target = Unicode("full")
+    model_target = Unicode("debiased")
     dispersion = Float(0.)
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
@@ -726,7 +726,7 @@ class randomized_lasso(parametric_method):
             signs = self.method_instance.fit()
             self._fit = True
 
-        signs = rand_lasso.fit()
+        signs = self.method_instance.selection_variable['sign']
         active_set = np.nonzero(signs)[0]
 
         active = signs != 0
@@ -799,7 +799,7 @@ class randomized_lasso(parametric_method):
             signs = self.method_instance.fit()
             self._fit = True
 
-        signs = rand_lasso.fit()
+        signs = self.method_instance.selection_variable['sign']
         active_set = np.nonzero(signs)[0]
 
         active = signs != 0
@@ -869,7 +869,6 @@ class randomized_lasso_aggressive_half(randomized_lasso):
     lambda_choice = Unicode('aggressive')
     randomizer_scale = Float(0.5)
 
-
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
@@ -880,14 +879,13 @@ class randomized_lasso_weak_half(randomized_lasso):
     lambda_choice = Unicode('weak')
     randomizer_scale = Float(0.5)
 
-
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_theory * np.ones(X.shape[1]) * 2. * self.noise
 randomized_lasso_weak_half.register()
 
-class randomized_lasso_aggressive_quarter(randomized_lasso):
+class randomized_lasso_aggressive_quarter(randomized_lasso_aggressive_half):
 
     randomizer_scale = Float(0.25)
 
@@ -896,7 +894,17 @@ class randomized_lasso_aggressive_quarter(randomized_lasso):
         randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
 
+class randomized_lasso_aggressive_tenth(randomized_lasso_aggressive_half):
+
+    randomizer_scale = Float(0.10)
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        randomized_lasso.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_theory * np.ones(X.shape[1]) * 0.8 * self.noise
+
 randomized_lasso_aggressive.register(), randomized_lasso_aggressive_half.register(), randomized_lasso_aggressive_quarter.register()
+randomized_lasso_aggressive_tenth.register()
 
 # Randomized selected smaller randomization
 
@@ -916,6 +924,7 @@ class randomized_lasso_half_1se(randomized_lasso_1se):
     need_CV = True
     randomizer_scale = Float(0.5)
     pass
+
 
 class randomized_lasso_1se_AR(randomized_lasso_1se):
 
@@ -1194,7 +1203,13 @@ class randomized_lasso_full_aggressive_half(randomized_lasso_full_aggressive):
     randomizer_scale = Float(0.5)
     pass
 
+class randomized_lasso_full_aggressive_quarter(randomized_lasso_full_aggressive):
+
+    randomizer_scale = Float(0.25)
+    pass
+
 randomized_lasso_full_aggressive.register(), randomized_lasso_full_aggressive_half.register()
+randomized_lasso_full_aggressive_quarter.register()
 
 class randomized_lasso_R_theory(parametric_method):
 

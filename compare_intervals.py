@@ -90,7 +90,7 @@ def compare(instance,
                     else:
                         results_full = results_df
                     f = open(csvfile, 'w')
-                    f.write(results_df.to_csv(index_label=False) + '\n')
+                    f.write(results_full.to_csv(index_label=False) + '\n')
                     f.close()
 
                 summary_df = summarize('method_param',
@@ -111,6 +111,13 @@ def compare(instance,
                     f = open(csvfile.replace('.csv', '_summary.csv'), 'w')
                     f.write(summary_df.to_csv() + '\n')
                     f.close()
+
+                    # also write a summary html
+
+                    f = open(csvfile.replace('.csv', '_summary.html'), 'w')
+                    f.write(summary_df.to_html() + '\n')
+                    f.close()
+
             elif len(results) == 0:
                 results_full = results_existing
 

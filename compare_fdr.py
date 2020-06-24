@@ -117,6 +117,12 @@ def compare(instance,
                     f.write(summary_df.to_csv(index_label=False) + '\n')
                     f.close()
 
+                    # also write a summary html
+
+                    f = open(csvfile.replace('.csv', '_summary.html'), 'w')
+                    f.write(summary_df.to_html() + '\n')
+                    f.close()
+
         if i > 0 and len(np.unique(results_full['instance_id'])) >= nsim:
             break
 
