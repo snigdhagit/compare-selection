@@ -137,25 +137,29 @@ def estimator_statistic(method,
 
     tic = time.time()
 
-    full_risk = np.linalg.norm(beta - point_estimate)**2
-    naive_full_risk = np.linalg.norm(beta - naive_estimate)**2
+    S = instance.feature_cov
+
+    full_risk = np.sum((beta - point_estimate) * S.dot(beta - point_estimate)) / beta[active].shape
+    naive_full_risk = np.sum((beta - naive_estimate) * S.dot(beta - naive_estimate)) / beta[active].shape
 
     # partial risk -- only active coordinates
 
     target = M.get_target(active, beta) # for now limited to Gaussian methods
 
-    partial_risk = np.linalg.norm(target - point_estimate[active])**2
-    naive_partial_risk = np.linalg.norm(target - naive_estimate[active])**2
+    S_active = S[active][:,active]
+    delta = target - point_estimate[active]
+    partial_risk = np.sum(delta * S_active.dot(delta)) / delta.shape[0]
+    naive_delta = target - naive_estimate[active]
+    naive_partial_risk = np.sum(naive_delta * S_active.dot(naive_delta)) / delta.shape[0]
+
+    if np.linalg.norm(target) > 0:
+        partial_relative_risk = partial_risk / max(np.sum(target * S_active.dot(target)), 1)
+        naive_partial_relative_risk = naive_partial_risk / max(np.sum(target * S_active.dot(target)), 1)
 
     # relative risk
 
-    S = instance.feature_cov
-
-    relative_risk = (np.sum((beta - point_estimate) * S.dot(beta - point_estimate)) / 
-                     np.sum(beta * S.dot(beta)))
-
-    naive_relative_risk = (np.sum((beta - naive_estimate) * S.dot(beta - naive_estimate)) / 
-                           np.sum(beta * S.dot(beta)))
+    relative_risk = full_risk / (np.sum(beta * S.dot(beta)) * beta.shape[0])
+    naive_relative_risk = naive_full_risk / np.sum(beta * S.dot(beta))
 
     bias = np.mean(point_estimate - beta)
     naive_bias = np.mean(naive_estimate - beta)
@@ -163,6 +167,8 @@ def estimator_statistic(method,
     value = pd.DataFrame({'Full Risk':[full_risk], 
                           'Naive Full Risk':[naive_full_risk],
                           'Partial Risk':[partial_risk],
+                          'Partial Relative Risk':[partial_relative_risk],
+                          'Naive Partial Relative Risk':[naive_partial_relative_risk],
                           'Naive Partial Risk':[naive_partial_risk],
                           'Relative Risk':[relative_risk],
                           'Naive Relative Risk':[naive_relative_risk],
