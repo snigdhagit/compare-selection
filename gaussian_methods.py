@@ -302,23 +302,6 @@ class ROSI_1se(ROSI_theory):
         self.lagrange = l_1se * np.ones(X.shape[1])
 ROSI_1se.register()
 
-class ROSI_CV(ROSI_theory):
-
-    method_name = Unicode("ROSI")
-    need_CV = True
-    """
-    Force the use of the debiasing matrix.
-    """
-
-    lambda_choice = Unicode("1se")
-
-    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
-
-        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
-        self.lagrange = l_min * np.ones(X.shape[1])
-ROSI_CV.register()
-
-
 # Unrandomized selected
 
 class lasso_theory(parametric_method):
@@ -345,12 +328,12 @@ class lasso_theory(parametric_method):
         if not self._fit:
             self.method_instance.fit()
             self._fit = True
-            self.method_instance._constraints.covariance *= self.dispersion
             
         X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
 
         if len(L.active) > 0:
-            S = L.summary(compute_intervals=compute_intervals, alternative='onesided',
+            S = L.summary(compute_intervals=compute_intervals,
+                          alternative='onesided',
                           dispersion=self.dispersion)
             return S
 
@@ -415,6 +398,22 @@ class lasso_1se(lasso_theory):
         self.lagrange = l_1se * np.ones(X.shape[1])
 
 lasso_1se.register()
+
+class ROSI_CV(ROSI_theory):
+
+    method_name = Unicode("ROSI")
+    need_CV = True
+    """
+    Force the use of the debiasing matrix.
+    """
+
+    lambda_choice = Unicode("1se")
+
+    def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
+
+        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        self.lagrange = l_min * np.ones(X.shape[1])
+ROSI_CV.register()
 
 # Randomized selected
 

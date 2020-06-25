@@ -373,7 +373,7 @@ palette = {'MLE': 'blue',
 ```
 
 ```{python}
-nsim = 20
+nsim = 5
 snrs = [0.15, 0.2, 0.31]
 
 results = []
