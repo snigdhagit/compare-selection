@@ -89,7 +89,7 @@ class generic_method(HasTraits):
 
 class parametric_method(generic_method):
 
-    confidence = Float(0.95)
+    confidence = Float(0.9)
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
         generic_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
@@ -114,7 +114,7 @@ class parametric_method(generic_method):
     def generate_pvalues(self):
         raise NotImplementedError('abstract method, should return (active_set, pvalues)')
 
-    def generate_pvalues(self):
+    def generate_intervals(self):
         raise NotImplementedError('abstract method, should return (active_set, lower_limit, upper_limit)')
 
     def naive_pvalues(self, active_set):
@@ -124,20 +124,21 @@ class parametric_method(generic_method):
 
         numpy2ri.activate()
 
+        rpy.r.assign("Y", self.Y)
         if self.model_target == 'selected':
             rpy.r.assign("X", self.X[:, active_set])
+            rpy.r('pval = summary(lm(Y ~ X - 1))$coef[,4]')
+            pval = np.asarray(rpy.r('pval'))
         else:
             n, p = self.X.shape
             if n > p:
                 rpy.r.assign("X", self.X)
+                rpy.r('pval = summary(lm(Y ~ X - 1))$coef[,4]')
+                pval = np.asarray(rpy.r('pval'))
+                pval = pval[active_set]
             else:
                 return active_set, np.ones(len(active_set)) * np.nan
 
-        rpy.r.assign("Y", self.Y)
-        rpy.r('pval = summary(lm(Y ~ X - 1))$coef[,4]')
-        pval = np.asarray(rpy.r('pval'))
-        if self.model_target != 'selected':
-            pval = pval[active_set]
         numpy2ri.deactivate()
 
         return active_set, pval
@@ -269,7 +270,7 @@ class ROSI_theory(parametric_method):
             return [], [], [], []
 
     def point_estimator(self):
-        S = self.generate_summary(compute_intervals=True)
+        S = self.generate_summary(compute_intervals=False)
         n, p = self.X.shape
         beta_full = np.zeros(p)
         if S is not None:
@@ -313,19 +314,20 @@ class ROSI_CV(ROSI_theory):
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_min * np.ones(X.shape[1])
 ROSI_CV.register()
 
 
 # Unrandomized selected
 
-class lee_theory(parametric_method):
+class lasso_theory(parametric_method):
     
     model_target = Unicode("selected")
     method_name = Unicode("Lee")
     estimator = Unicode("OLS")
-
+    dispersion = Float(1.)
+    
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
         parametric_method.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
@@ -343,11 +345,13 @@ class lee_theory(parametric_method):
         if not self._fit:
             self.method_instance.fit()
             self._fit = True
-
+            self.method_instance._constraints.covariance *= self.dispersion
+            
         X, Y, lagrange, L = self.X, self.Y, self.lagrange, self.method_instance
 
         if len(L.active) > 0:
-            S = L.summary(compute_intervals=compute_intervals, alternative='onesided')
+            S = L.summary(compute_intervals=compute_intervals, alternative='onesided',
+                          dispersion=self.dispersion)
             return S
 
     def generate_pvalues(self):
@@ -371,7 +375,7 @@ class lee_theory(parametric_method):
             return [], [], []
 
     def point_estimator(self):
-        S = self.generate_summary(compute_intervals=True)
+        S = self.generate_summary(compute_intervals=False)
         n, p = self.X.shape
         beta_full = np.zeros(p)
         if S is not None:
@@ -384,9 +388,9 @@ class lee_theory(parametric_method):
         else:
             return [], beta_full
 
-lee_theory.register()
+lasso_theory.register()
 
-class lee_CV(lee_theory):
+class lasso_CV(lasso_theory):
     
     need_CV = True
 
@@ -394,12 +398,12 @@ class lee_CV(lee_theory):
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_min * np.ones(X.shape[1])
 
-lee_CV.register()
+lasso_CV.register()
 
-class lee_1se(lee_theory):
+class lasso_1se(lasso_theory):
     
     need_CV = True
 
@@ -407,10 +411,10 @@ class lee_1se(lee_theory):
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = l_1se * np.ones(X.shape[1])
 
-lee_1se.register()
+lasso_1se.register()
 
 # Randomized selected
 
@@ -434,11 +438,12 @@ class randomized_lasso(parametric_method):
         if not hasattr(self, "_method_instance"):
             n, p = self.X.shape
             mean_diag = np.mean((self.X ** 2).sum(0))
-            self._method_instance = random_lasso_method.gaussian(self.X,
-                                                                 self.Y,
-                                                                 feature_weights = self.lagrange * np.sqrt(n),
-                                                                 ridge_term=np.std(self.Y) * np.sqrt(mean_diag) / np.sqrt(n),
-                                                                 randomizer_scale=self.randomizer_scale * np.std(self.Y) * np.sqrt(n))
+            self._method_instance = random_lasso_method.gaussian(
+                self.X,
+                self.Y,
+                feature_weights=self.lagrange * np.sqrt(n),
+                ridge_term=np.std(self.Y) * np.sqrt(mean_diag) / np.sqrt(n),
+                randomizer_scale=self.randomizer_scale * np.std(self.Y) * mean_diag)
         return self._method_instance
 
     def generate_summary(self, compute_intervals=False): 
@@ -455,17 +460,10 @@ class randomized_lasso(parametric_method):
 
         active = signs != 0
 
-        # estimates sigma
-        # JM: for transparency it's better not to have this digged down in the code
-        X_active = X[:,active_set]
-        resid = Y - X_active.dot(np.linalg.pinv(X_active).dot(Y))
-        dispersion = np.sum(resid**2) / (n - active.sum())
-
         kwargs = {}
         if self.model_target == 'debiased':
             kwargs['penalty'] = rand_lasso.penalty
             
-        # kwargs['dispersion'] = dispersion
         (observed_target, 
          cov_target, 
          cov_target_score, 
@@ -566,6 +564,7 @@ class randomized_lasso_1se(randomized_lasso):
         self.lagrange = l_1se * np.ones(X.shape[1])
 
 randomized_lasso.register(), randomized_lasso_CV.register(), randomized_lasso_1se.register()
+
 
 # Randomized full
 

@@ -3,10 +3,22 @@ from __future__ import division
 import numpy as np, pandas as pd, time
 from utils import BHfilter
 
-def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+def interval_statistic(method,
+                       instance,
+                       X,
+                       Y,
+                       beta,
+                       l_theory,
+                       l_min,
+                       l_1se,
+                       sigma_reid,
+                       M=None):
 
-    toc = time.time()
-    M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    if M is None:
+        toc = time.time()
+        M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    else:
+        toc = np.inf
     try:
         active, lower, upper, pvalues = M.generate_intervals()
     except AttributeError:
@@ -14,21 +26,26 @@ def interval_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sig
 
     if len(active) > 0:
         naive_lower, naive_upper = M.naive_intervals(active)[1:]
+        naive_pvalues = M.naive_pvalues(active)[1]
     else:
-        naive_lower, naive_upper = None, None
+        naive_lower, naive_upper, naive_pvalues = None, None, None
     target = M.get_target(active, beta) # for now limited to Gaussian methods
+    full_target = M.full_target(active, beta)
     tic = time.time()
 
     if len(active) > 0:
         value = pd.DataFrame({'active_variable':active,
                               'lower_confidence':lower,
                               'upper_confidence':upper,
-                              'target':target})
+                              'target':target,
+                              'full_target':full_target})
         if naive_lower is not None:
             value['naive_lower_confidence'] = naive_lower
             value['naive_upper_confidence'] = naive_upper
-        value['Time'] = tic-toc
-        value['pvalues'] = pvalues
+            value['naive_pvalue'] = naive_pvalues
+        if np.isfinite(toc):
+            value['Time'] = tic-toc
+        value['pvalue'] = pvalues
         return M, value
     else:
         return M, None
@@ -91,11 +108,23 @@ def interval_summary(result):
 
     return value
 
-def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+def estimator_statistic(method,
+                        instance,
+                        X,
+                        Y,
+                        beta,
+                        l_theory,
+                        l_min,
+                        l_1se,
+                        sigma_reid,
+                        M=None):
 
-    toc = time.time()
-    M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
-
+    if M is None:
+        toc = time.time()
+        M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    else:
+        toc = np.inf
+        
     try:
         active, point_estimate = M.point_estimator()
     except AttributeError:
@@ -113,8 +142,10 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
 
     # partial risk -- only active coordinates
 
-    partial_risk = np.linalg.norm(beta[active] - point_estimate[active])**2
-    naive_partial_risk = np.linalg.norm(beta[active] - naive_estimate[active])**2
+    target = M.get_target(active, beta) # for now limited to Gaussian methods
+
+    partial_risk = np.linalg.norm(target - point_estimate[active])**2
+    naive_partial_risk = np.linalg.norm(target - naive_estimate[active])**2
 
     # relative risk
 
@@ -139,7 +170,8 @@ def estimator_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, si
                           'Naive Bias':[naive_bias],
                           })
 
-    value['Time'] = tic-toc
+    if np.isfinite(toc):
+        value['Time'] = tic-toc
     value['Active'] = len(active)
 
     return M, value
@@ -197,10 +229,23 @@ def estimator_summary(result):
 
     return value
 
-def BH_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_reid):
+def BH_statistic(method,
+                 instance,
+                 X,
+                 Y,
+                 beta,
+                 l_theory,
+                 l_min,
+                 l_1se,
+                 sigma_reid,
+                 M=None):
 
-    toc = time.time()
-    M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    if M is None:
+        toc = time.time()
+        M = method(X.copy(), Y.copy(), l_theory.copy(), l_min, l_1se, sigma_reid)
+    else:
+        toc = np.inf
+        
     selected, active = M.select()
     try:
         if len(active) > 0:
@@ -228,35 +273,37 @@ def BH_statistic(method, instance, X, Y, beta, l_theory, l_min, l_1se, sigma_rei
             nTD, nFDP, nFD = np.nan, np.nan, np.nan
 
         ntrue_active = max(len(true_active), 1) 
-        return M, pd.DataFrame([[TD / ntrue_active, 
-                                 FD, 
-                                 FDP, 
-                                 np.maximum(nTD / ntrue_active, 1), 
-                                 nFD,
-                                 nFDP,
-                                 tic-toc, 
-                                 selection_quality / ntrue_active,
-                                 len(active)]],
-                               columns=['Full Model Power',
-                                        'False Discoveries',
-                                        'Full Model FDP',
-                                        'Naive Full Model Power',
-                                        'Naive False Discoveries',
-                                        'Naive Full Model FDP',
-                                        'Time',
-                                        'Selection Quality',
-                                        'Active'])
+        value = pd.DataFrame([[TD / ntrue_active, 
+                               FD, 
+                               FDP, 
+                               np.maximum(nTD / ntrue_active, 1), 
+                               nFD,
+                               nFDP,
+                               selection_quality / ntrue_active,
+                               len(active)]],
+                             columns=['Full Model Power',
+                                      'False Discoveries',
+                                      'Full Model FDP',
+                                      'Naive Full Model Power',
+                                      'Naive False Discoveries',
+                                      'Naive Full Model FDP',
+                                      'Selection Quality',
+                                      'Active'])
     else:
-        return M, pd.DataFrame([[0, 0, 0, 0, 0, 0, tic-toc, 0, 0]],
-                               columns=['Full Model Power',
-                                        'False Discoveries',
-                                        'Full Model FDP',
-                                        'Naive Full Model Power',
-                                        'Naive False Discoveries',
-                                        'Naive Full Model FDP',
-                                        'Time',
-                                        'Selection Quality',
-                                        'Active'])
+        value = pd.DataFrame([[0, 0, 0, 0, 0, 0, tic-toc, 0, 0]],
+                             columns=['Full Model Power',
+                                      'False Discoveries',
+                                      'Full Model FDP',
+                                      'Naive Full Model Power',
+                                      'Naive False Discoveries',
+                                      'Naive Full Model FDP',
+                                      'Time',
+                                      'Selection Quality',
+                                      'Active'])
+    if np.isfinite(toc):
+        value['Time'] = tic-toc
+
+    return M, value
 
 def BH_summary(result):
 

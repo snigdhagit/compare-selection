@@ -14,7 +14,7 @@ from traitlets import (HasTraits,
 import rpy2.robjects as rpy
 from rpy2.robjects import numpy2ri
 
-from gaussian_methods import lee_1se, parametric_method
+from gaussian_methods import lasso_1se, parametric_method
 
 # POSI selection
 # since there are no p-values we just use
@@ -28,7 +28,7 @@ class POSI90(parametric_method):
 
     method_name = Unicode("POSI")
     selectiveR_method = True
-    selection_method = lee_1se
+    selection_method = lasso_1se
     model_target = Unicode("selected")
 
     @classmethod
@@ -115,7 +115,7 @@ class POSI80(POSI90):
 
     method_name = Unicode("POSI")
     selectiveR_method = True
-    selection_method = lee_1se
+    selection_method = lasso_1se
     model_target = Unicode("selected")
 
     @classmethod
@@ -154,7 +154,7 @@ class POSI95(POSI90):
 
     method_name = Unicode("POSI")
     selectiveR_method = True
-    selection_method = lee_1se
+    selection_method = lasso_1se
     model_target = Unicode("selected")
 
     @classmethod

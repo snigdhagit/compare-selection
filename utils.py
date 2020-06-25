@@ -50,6 +50,7 @@ def gaussian_setup(X, Y, run_CV=True):
     numpy2ri.activate()
     rpy.r.assign('X', X)
     rpy.r.assign('Y', Y)
+    numpy2ri.deactivate()
     rpy.r('X=as.matrix(X)')
     rpy.r('Y=as.numeric(Y)')
 
@@ -98,5 +99,32 @@ def summarize(groupings,
     return summary_df
 
 
+def get_method_params(methods):
+
+    # find all columns needed for output
+
+    colnames = []
+    for method in methods:
+        M = method(np.random.standard_normal((10,5)), np.random.standard_normal(10), 1., 1., 1., 1.)
+        colnames += M.trait_names()
+    colnames = sorted(np.unique(colnames))
+
+    def get_col(method, colname):
+        if colname in method.trait_names():
+            return getattr(method, colname)
+
+    def get_params(method):
+        return [get_col(method, colname) for colname in colnames]
+
+    method_names = []
+    method_params = []
+    for method in methods:
+        M = method(np.random.standard_normal((10,5)), np.random.standard_normal(10), 1., 1., 1., 1.)
+        method_params.append(get_params(M))
+        method_names.append(M.method_name)
+
+    method_params = pd.DataFrame(method_params, columns=colnames)
+
+    return method_params, [m.__name__ for m in methods], method_names
 
 

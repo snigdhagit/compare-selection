@@ -163,27 +163,27 @@ class liu_1se(liu_theory):
 liu_1se.register()
 
 
-class lee_aggressive(lee_theory):
+class lasso_aggressive(lasso_theory):
     
     lambda_choice = Unicode("aggressive")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = 0.8 * l_theory * np.ones(X.shape[1]) * self.noise
 
-lee_aggressive.register()
+lasso_aggressive.register()
 
-class lee_weak(lee_theory):
+class lasso_weak(lasso_theory):
     
     lambda_choice = Unicode("weak")
 
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 
-        lee_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
+        lasso_theory.__init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid)
         self.lagrange = 2 * l_theory * np.ones(X.shape[1]) * self.noise
 
-lee_weak.register()
+lasso_weak.register()
 
 class sqrt_lasso(parametric_method):
 
@@ -615,10 +615,10 @@ class randomized_lasso_R_theory(parametric_method):
 
 randomized_lasso_R_theory.register()
 
-class lee_full_R_theory(liu_theory):
+class lasso_full_R_theory(liu_theory):
 
     wide_OK = False # requires at least n>p
-    method_name = Unicode("Lee (R code)")
+    method_name = Unicode("Lasso (R code)")
     selectiveR_method = True
 
     def generate_pvalues(self):
@@ -651,4 +651,4 @@ class lee_full_R_theory(liu_theory):
             return active_set, pvalues
         else:
             return [], []
-lee_full_R_theory.register()
+lasso_full_R_theory.register()

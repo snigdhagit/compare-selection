@@ -15,7 +15,7 @@ from traitlets import (HasTraits,
 import rpy2.robjects as rpy
 from rpy2.robjects import numpy2ri
 
-from gaussian_methods import lee_1se, generic_method
+from gaussian_methods import generic_method
 
 # Knockoff selection
 
