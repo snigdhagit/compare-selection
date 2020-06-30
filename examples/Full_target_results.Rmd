@@ -96,11 +96,7 @@ def simulate(n=500,
 
 ```
 
-<!-- #region -->
-
-
 ### Extract $\lambda$ and point estimate from `glmnet`
-<!-- #endregion -->
 
 ```{r}
 library(glmnet)
@@ -363,7 +359,7 @@ class MLE(Randomized):
     method_name = Unicode("MLE")
     use_MLE = Bool(True)
     use_initial_soln = Bool(False)
-    model_target = Unicode('selected')
+    model_target = Unicode('full')
     
     def __init__(self, X, Y, l_theory, l_min, l_1se, sigma_reid):
 

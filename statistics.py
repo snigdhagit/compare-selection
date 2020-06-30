@@ -34,11 +34,14 @@ def interval_statistic(method,
     tic = time.time()
 
     if len(active) > 0:
+        alpha = 1 - M.confidence
+        fdp = (pvalues[full_target == 0] < alpha).sum() / pvalues.shape[0]
         value = pd.DataFrame({'active_variable':active,
                               'lower_confidence':lower,
                               'upper_confidence':upper,
                               'target':target,
-                              'full_target':full_target})
+                              'full_target':full_target,
+                              'fdp':fdp * np.ones_like(pvalues)})
         if naive_lower is not None:
             value['naive_lower_confidence'] = naive_lower
             value['naive_upper_confidence'] = naive_upper
