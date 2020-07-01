@@ -167,7 +167,7 @@ def estimator_statistic(method,
     bias = np.mean(point_estimate - beta)
     naive_bias = np.mean(naive_estimate - beta)
 
-    value = pd.DataFrame({'Full Risk':[full_risk], 
+    value = pd.DataFrame({'Full Risk':[full_risk],
                           'Naive Full Risk':[naive_full_risk],
                           'Partial Risk':[partial_risk],
                           'Partial Relative Risk':[partial_relative_risk],
